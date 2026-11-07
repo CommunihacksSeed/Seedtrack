@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { getStore, supabaseConfigured } from "@/lib/store";
+import { getStore } from "@/lib/store";
 import { authMode, isStaff } from "@/lib/server/auth";
 import { errorResponse, json } from "@/lib/server/http";
 import { cognitoStatus } from "@/lib/integrations/cognito";
@@ -16,7 +16,6 @@ export async function GET(req: Request) {
     }
     return json({
       mode: store.mode,
-      demo: !supabaseConfigured(),
       staff,
       authMode: authMode(),
       cognito: cognitoStatus(),

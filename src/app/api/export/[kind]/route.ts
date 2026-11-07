@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { getStore, supabaseConfigured } from "@/lib/store";
+import { getStore } from "@/lib/store";
 import { isStaff } from "@/lib/server/auth";
 import { errorResponse, json } from "@/lib/server/http";
 import { toCsv } from "@/lib/csv";
@@ -60,11 +60,10 @@ export async function GET(req: Request, ctx: RouteContext<"/api/export/[kind]">)
       default:
         return json({ error: "Unknown export" }, 404);
     }
-    const prefix = supabaseConfigured() ? "seedflow" : "seedflow-DEMO";
     return new Response(csv, {
       headers: {
         "content-type": "text/csv; charset=utf-8",
-        "content-disposition": `attachment; filename="${prefix}-${kind}-${new Date().toISOString().slice(0, 10)}.csv"`,
+        "content-disposition": `attachment; filename="seedflow-${kind}-${new Date().toISOString().slice(0, 10)}.csv"`,
         "cache-control": "no-store",
       },
     });

@@ -46,7 +46,7 @@
 
 - **Reports**: #1004 is under completed orders, and distribution by category and organization updated. Export any table to CSV.
 
-**Close:** “Every stock change runs as one locked database transaction in Postgres. We tested two simultaneous approvals fighting over the same seeds, and only one won. Next steps are Cognito API sync once we have credentials, and individual staff logins.”
+**Close:** “Every stock change is one atomic database write that's rejected and re-checked if inventory changed in the meantime. We tested simultaneous approvals fighting over the same stock: one fails cleanly and nothing is over-reserved.”
 
 ## Likely judge questions
 

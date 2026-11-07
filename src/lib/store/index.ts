@@ -1,16 +1,9 @@
 import "server-only";
-import { createLocalStore } from "./local";
-import { createSupabaseStore } from "./supabase";
+import { env } from "cloudflare:workers";
+import { createD1Store } from "./d1";
 import type { SeedFlowStore } from "./types";
 
-export function supabaseConfigured() {
-  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
-}
-
-let cached: SeedFlowStore | null = null;
-
-/** Supabase when configured; otherwise the clearly-labelled local demo store. */
+/** Bindings are per-environment, so there's nothing worth caching here. */
 export function getStore(): SeedFlowStore {
-  if (!cached) cached = supabaseConfigured() ? createSupabaseStore() : createLocalStore();
-  return cached;
+  return createD1Store(env.DB);
 }

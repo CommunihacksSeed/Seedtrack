@@ -99,7 +99,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        subtitle={state.demo ? "Overview of the fictional demo dataset." : "Live overview of inventory and seed requests."}
+        subtitle="Live overview of inventory and seed requests."
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

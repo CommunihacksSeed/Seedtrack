@@ -13,7 +13,7 @@ import { timingSafeEqual } from "crypto";
  *   no contact details.
  *
  * This is a shared-secret gate for a hackathon prototype, not a full user
- * login system. Replace it with Supabase Auth before handling real data.
+ * login system. Replace it with per-user login before handling real data.
  */
 function safeEqual(a: string, b: string) {
   const ab = Buffer.from(a);

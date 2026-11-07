@@ -28,22 +28,10 @@ export default function SettingsPage() {
         <Card>
           <CardHeader title="Data storage" action={<Database size={18} className="text-forest-500" />} />
           <div className="space-y-3 p-5 text-sm">
-            {state.mode === "supabase" ? (
-              <>
-                <Badge tone="green">Supabase PostgreSQL</Badge>
-                <p className="text-muted">
-                  Connected. Approvals, deliveries and cancellations run as single database transactions that lock the affected inventory rows, so stock can&apos;t be reserved twice.
-                </p>
-              </>
-            ) : (
-              <>
-                <Badge tone="amber">Local demo store</Badge>
-                <p className="text-muted">
-                  Supabase isn&apos;t configured, so data is kept in a JSON file on the server. It applies the same business rules, but it isn&apos;t a production database:
-                  it&apos;s only safe on a single server and may be wiped on serverless hosting. Set <code>SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> to switch.
-                </p>
-              </>
-            )}
+            <Badge tone="green">Cloudflare D1</Badge>
+            <p className="text-muted">
+              Connected. Approvals, deliveries and cancellations commit as a single atomic write that&apos;s rejected and re-checked if inventory changed in the meantime, so stock can&apos;t be reserved twice.
+            </p>
           </div>
         </Card>
 
@@ -121,7 +109,7 @@ export default function SettingsPage() {
         <div className="space-y-4 text-sm">
           <p>
             Every seed, request and stock movement will be deleted and replaced with fictional demo data.{" "}
-            {state.mode === "supabase" && <strong className="text-red-700">This deletes real database records.</strong>}
+            <strong className="text-red-700">This deletes real database records.</strong>
           </p>
           <div className="flex justify-end gap-2">
             <Button onClick={() => setConfirmReset(false)}>Cancel</Button>

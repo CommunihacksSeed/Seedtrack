@@ -9,15 +9,20 @@ import type {
   SeedInput,
 } from "../types";
 
-export type StoreMode = "local-demo" | "supabase";
+export type StoreMode = "d1";
 
-/**
- * Data access layer. Both implementations enforce the same business rules;
- * only the Supabase one is concurrency-safe across multiple server instances.
- */
+/** Data access layer. Business rules live in lib/domain.ts. */
 export interface SeedFlowStore {
   mode: StoreMode;
   snapshot(): Promise<DataSnapshot>;
+
+  /**
+   * Run domain functions as one atomic write. `fn` must be synchronous and may
+   * run more than once, so rebuild any results inside it. Use this for bulk
+   * work: looping over the single-row methods spends D1 queries per row and
+   * hits the per-invocation limit. The draft has no audit history loaded.
+   */
+  transact<T>(fn: (draft: DataSnapshot) => T): Promise<T>;
 
   createSeed(input: SeedInput): Promise<Seed>;
   updateSeed(id: string, input: Partial<Omit<SeedInput, "physical_quantity">>): Promise<Seed>;

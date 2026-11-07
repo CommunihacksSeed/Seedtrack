@@ -113,11 +113,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <main className="min-w-0 flex-1">
-        {state?.demo && (
-          <div className="no-print border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900 lg:px-8">
-            Demo Mode — Sample Inventory Data. All quantities, schools and contacts are fictional. Data is stored in a local demo file, not a database.
-          </div>
-        )}
         {state && !state.staff && (
           <div className="no-print border-b border-sky-200 bg-sky-50 px-4 py-2 text-center text-xs font-medium text-sky-900 lg:px-8">
             {state.authMode === "read-only"

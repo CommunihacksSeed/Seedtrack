@@ -68,7 +68,6 @@ export default function InventoryPage() {
         subtitle={
           <>
             Physical stock, reserved packets and what&apos;s available to allocate.{" "}
-            {state.demo && <strong className="text-amber-800">Quantities are fictional demo data.</strong>}
           </>
         }
         actions={

@@ -40,6 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local demo data store
-/.data/
 !.env.example
+/dist/
+.vinext/
+.cloudflare/
+.dev.vars*

@@ -39,7 +39,7 @@ export default function ReportsPage() {
     <>
       <PageHeader
         title="Reports"
-        subtitle={`All figures are calculated from ${state.demo ? "the fictional demo records" : "database records"}. Distribution counts only delivered orders.`}
+        subtitle="All figures are calculated from database records. Distribution counts only delivered orders."
         actions={
           <>
             <Button onClick={() => exp("inventory")}>

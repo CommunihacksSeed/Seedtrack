@@ -4,8 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { DataSnapshot } from "@/lib/types";
 
 export interface AppState {
-  mode: "local-demo" | "supabase";
-  demo: boolean;
+  mode: "d1";
   staff: boolean;
   authMode: "key" | "open-dev" | "read-only";
   cognito: { apiConfigured: boolean; webhookConfigured: boolean; message: string };
