@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import { CheckCircle2, ClipboardList, Download, List, Plus, Sprout, Upload } from "lucide-react";
+import { CheckCircle2, ClipboardList, Download, Link2, List, Plus, Sprout, Upload } from "lucide-react";
 import { useData } from "@/components/data-provider";
 import { downloadExport } from "@/components/download";
 import { useQueryState } from "@/components/use-query-state";
@@ -102,6 +102,17 @@ function RequestsPageContent() {
         <>
           <Button variant="ghost" onClick={() => downloadExport("orders").catch((e) => toast(e.message, "error"))}>
             <Download /> Export
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() =>
+              navigator.clipboard
+                .writeText(`${window.location.origin}/request`)
+                .then(() => toast("Form link copied. Share it with schools."))
+                .catch(() => toast(`Form link: ${window.location.origin}/request`))
+            }
+          >
+            <Link2 /> Copy form link
           </Button>
           <LinkButton href="/requests/import">
             <Upload /> Import

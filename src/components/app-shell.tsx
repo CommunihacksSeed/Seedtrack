@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { BarChart3, ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X } from "lucide-react";
 import { useData } from "./data-provider";
+import { isPublicPath } from "./public-path";
 import { ErrorState } from "./ui";
 
 const NAV = [
@@ -90,6 +91,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // Public request form: no sidebar, no staff banners, just the page.
+  if (isPublicPath(path)) return <main id="main">{children}</main>;
 
   return (
     <div className="min-h-screen lg:flex">

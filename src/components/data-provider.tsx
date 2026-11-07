@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { DataSnapshot } from "@/lib/types";
+import { isPublicPath } from "./public-path";
 
 export interface AppState {
   mode: "d1";
@@ -33,6 +35,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [updateReady, setUpdateReady] = useState(false);
   const seen = useRef<{ data?: number; build?: string }>({});
+  // The public request form must never load staff data (requests, contacts).
+  const isPublic = isPublicPath(usePathname());
 
   const toast = useCallback((text: string, kind: Toast["kind"] = "success") => {
     const id = Date.now() + Math.random();
@@ -70,13 +74,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
+    if (isPublic) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load
     refresh();
-  }, [refresh]);
+  }, [refresh, isPublic]);
 
   // Keep open pages current: another person's change reloads the data, and a new
   // deployment offers a reload rather than forcing one over a half-filled form.
   useEffect(() => {
+    if (isPublic) return;
     const check = async () => {
       if (document.visibilityState !== "visible") return;
       try {
@@ -98,7 +104,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [refresh]);
+  }, [refresh, isPublic]);
 
   const value = useMemo(() => ({ state, error, loading, refresh, mutate, toast }), [state, error, loading, refresh, mutate, toast]);
 
