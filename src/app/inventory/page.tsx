@@ -1,186 +1,417 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Papa from "papaparse";
-import { ClipboardCheck, Download, History, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
+import { ClipboardCheck, Download, History, Info, Pencil, Plus, Sprout, Trash2, Upload } from "lucide-react";
 import { useData } from "@/components/data-provider";
 import { downloadExport } from "@/components/download";
+import { useQueryState } from "@/components/use-query-state";
 import {
+  ActionMenu,
   Badge,
   Button,
   Card,
+  Drawer,
   EmptyState,
+  ErrorState,
   Field,
   Loading,
   Modal,
   PageHeader,
   Qty,
+  SearchInput,
+  SegmentedTabs,
   StockBadge,
+  Toolbar,
   fmtDate,
+  fmtNum,
   inputCls,
+  tableCls,
+  type MenuItem,
 } from "@/components/ui";
 import { availableQuantity, seedLabel, stockStatus } from "@/lib/domain";
-import { CATEGORIES, MOVEMENT_LABELS, type Seed, type StockStatus } from "@/lib/types";
+import { CATEGORIES, MOVEMENT_LABELS, type Seed } from "@/lib/types";
 import { rowToSeedInput } from "@/lib/import-mapping";
+import { INVENTORY_VIEW_TEST, type InventoryView } from "@/lib/views";
 
-const STOCK_FILTERS: ("All" | StockStatus)[] = ["All", "Available", "Low Stock", "Out of Stock", "Needs Stock Count"];
+type View = InventoryView;
+const VIEW_TEST = INVENTORY_VIEW_TEST;
 
+// useSearchParams() needs a Suspense boundary for server rendering.
 export default function InventoryPage() {
-  const { state, mutate, toast } = useData();
+  return (
+    <Suspense fallback={<Loading label="Loading inventory" />}>
+      <InventoryPageContent />
+    </Suspense>
+  );
+}
+
+function InventoryPageContent() {
+  const { state, error, refresh, mutate, toast } = useData();
+  const [rawView, setView] = useQueryState("view", "all");
+  const view = (rawView in VIEW_TEST ? rawView : "all") as View;
+  const [selectedId, setSelectedId] = useQueryState("seed");
+  const [importParam, setImportParam] = useQueryState("import");
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
-  const [stock, setStock] = useState<(typeof STOCK_FILTERS)[number]>("All");
   const [editing, setEditing] = useState<Seed | "new" | null>(null);
-  const [counting, setCounting] = useState<Seed | null>(null);
-  const [history, setHistory] = useState<Seed | null>(null);
-  const [importing, setImporting] = useState(false);
+  const [countingId, setCountingId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const importing = importOpen || importParam === "1";
 
+  const all = useMemo(() => state?.snapshot.seeds ?? [], [state]);
+  const counts = useMemo(
+    () => Object.fromEntries((Object.keys(VIEW_TEST) as View[]).map((v) => [v, all.filter(VIEW_TEST[v]).length])) as Record<View, number>,
+    [all],
+  );
   const seeds = useMemo(() => {
-    if (!state) return [];
     const needle = q.trim().toLowerCase();
-    return state.snapshot.seeds
-      .filter((s) => (cat === "All" || s.category === cat) && (stock === "All" || stockStatus(s) === stock))
+    return all
+      .filter(VIEW_TEST[view])
+      .filter((s) => cat === "All" || s.category === cat)
       .filter((s) => !needle || `${seedLabel(s)} ${s.storage_location ?? ""} ${s.category}`.toLowerCase().includes(needle))
       .sort((a, b) => seedLabel(a).localeCompare(seedLabel(b)));
-  }, [state, q, cat, stock]);
+  }, [all, view, cat, q]);
 
-  if (!state) return <Loading />;
+  if (error && !state) return <ErrorState message={error} onRetry={refresh} />;
+  if (!state) return <Loading label="Loading inventory" />;
+
+  const selected = all.find((s) => s.id === selectedId) ?? null;
+  const counting = all.find((s) => s.id === countingId) ?? null;
+  const filtered = q.trim() !== "" || cat !== "All";
+  // "Save and count next" walks the seeds currently listed that still need a count.
+  const nextToCount = (after: Seed) => seeds.find((s) => s.id !== after.id && s.physical_quantity === null) ?? null;
 
   async function remove(s: Seed) {
     if (!confirm(`Delete ${seedLabel(s)} from inventory? This can't be undone.`)) return;
     try {
       await mutate(`/api/seeds/${s.id}`, undefined, "DELETE");
       toast(`Deleted ${seedLabel(s)}`);
+      if (selectedId === s.id) setSelectedId(null);
     } catch (e) {
       toast((e as Error).message, "error");
     }
   }
 
+  const menuFor = (s: Seed): MenuItem[] => [
+    { label: "View details", icon: <Info />, onSelect: () => setSelectedId(s.id) },
+    { label: "Stock history", icon: <History />, onSelect: () => setSelectedId(s.id) },
+    { label: "Edit details", icon: <Pencil />, onSelect: () => setEditing(s) },
+    { label: "Delete seed", icon: <Trash2 />, danger: true, onSelect: () => remove(s) },
+  ];
+
+  const countButton = (s: Seed) => (
+    <Button size="sm" onClick={() => setCountingId(s.id)} aria-label={`${s.physical_quantity === null ? "Count" : "Recount"} ${seedLabel(s)}`}>
+      <ClipboardCheck /> {s.physical_quantity === null ? "Count" : "Recount"}
+    </Button>
+  );
+
   return (
     <>
       <PageHeader
         title="Seed Inventory"
-        subtitle={
-          <>
-            Physical stock, reserved packets and what&apos;s available to allocate.{" "}
-          </>
-        }
+        subtitle="Packets on hand, reserved for approved orders, and available to allocate."
         actions={
           <>
-            <Button onClick={() => downloadExport("inventory").catch((e) => toast(e.message, "error"))}>
-              <Download size={16} /> Export CSV
+            <Button variant="ghost" onClick={() => downloadExport("inventory").catch((e) => toast(e.message, "error"))}>
+              <Download /> Export
             </Button>
-            <Button onClick={() => setImporting(true)}>
-              <Upload size={16} /> Import CSV
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload /> Import CSV
             </Button>
             <Button variant="primary" onClick={() => setEditing("new")}>
-              <Plus size={16} /> Add seed
+              <Plus /> Add seed
             </Button>
           </>
         }
       />
 
-      <Card className="mb-4 flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input className={`${inputCls} pl-9`} placeholder="Search seeds, varieties, locations…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search seeds" />
-        </div>
-        <select className={`${inputCls} sm:w-56`} value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Filter by category">
-          <option value="All">All categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-        <select className={`${inputCls} sm:w-48`} value={stock} onChange={(e) => setStock(e.target.value as typeof stock)} aria-label="Filter by stock status">
-          {STOCK_FILTERS.map((c) => (
-            <option key={c} value={c}>
-              {c === "All" ? "All stock levels" : c}
-            </option>
-          ))}
-        </select>
-      </Card>
-
-      {seeds.length === 0 ? (
-        <EmptyState title={state.snapshot.seeds.length ? "No seeds match these filters" : "No inventory yet"}>
-          {state.snapshot.seeds.length ? "Try clearing the search." : "Add seeds one by one or import a CSV to build the inventory from scratch."}
+      {all.length === 0 ? (
+        <EmptyState
+          icon={<Sprout />}
+          title="No seeds in inventory yet"
+          action={
+            <>
+              <Button variant="primary" onClick={() => setImportOpen(true)}>
+                <Upload /> Import CSV
+              </Button>
+              <Button onClick={() => setEditing("new")}>
+                <Plus /> Add a seed
+              </Button>
+            </>
+          }
+        >
+          Import your seed list or add seeds one at a time. Seeds can be added before anyone counts them.
         </EmptyState>
       ) : (
-        <Card className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-sm">
-            <thead className="bg-sage-50 text-left text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Seed</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 text-right font-medium">Physical</th>
-                <th className="px-4 py-3 text-right font-medium">Reserved</th>
-                <th className="px-4 py-3 text-right font-medium">Available</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Location</th>
-                <th className="px-4 py-3 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sage-100">
-              {seeds.map((s) => (
-                <tr key={s.id} className="hover:bg-sage-50/60">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-forest-900">{s.name}</p>
-                    {s.variety && <p className="text-xs text-muted">{s.variety}</p>}
-                  </td>
-                  <td className="px-4 py-3 text-muted">{s.category}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Qty value={s.physical_quantity} />
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{s.physical_quantity === null ? "—" : s.reserved_quantity}</td>
-                  <td className="px-4 py-3 text-right font-semibold">
-                    <Qty value={availableQuantity(s)} unknownLabel="Unknown" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StockBadge status={stockStatus(s)} />
-                  </td>
-                  <td className="px-4 py-3 text-muted">{s.storage_location ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <Button size="sm" variant={s.physical_quantity === null ? "primary" : "secondary"} onClick={() => setCounting(s)}>
-                        <ClipboardCheck size={14} /> {s.physical_quantity === null ? "Count" : "Update"}
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setHistory(s)} aria-label={`History for ${seedLabel(s)}`}>
-                        <History size={14} />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(s)} aria-label={`Edit ${seedLabel(s)}`}>
-                        <Pencil size={14} />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => remove(s)} aria-label={`Delete ${seedLabel(s)}`}>
-                        <Trash2 size={14} />
-                      </Button>
+        <>
+          <Toolbar>
+            <SegmentedTabs
+              label="Inventory view"
+              value={view}
+              onChange={(v) => setView(v)}
+              options={[
+                { value: "all", label: "All", count: counts.all },
+                { value: "uncounted", label: "Needs count", count: counts.uncounted, attention: true },
+                { value: "low", label: "Low stock", count: counts.low, attention: true },
+                { value: "allocatable", label: "Allocatable", count: counts.allocatable },
+              ]}
+            />
+            <div className="flex flex-1 flex-col gap-2 sm:flex-row md:justify-end">
+              <SearchInput className="sm:w-72" value={q} onChange={setQ} placeholder="Search name, variety or location" label="Search seeds" />
+              <select className={`${inputCls} sm:w-52`} value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Filter by category">
+                <option value="All">All categories</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </Toolbar>
+
+          {seeds.length === 0 ? (
+            filtered ? (
+              <EmptyState
+                compact
+                title="No seeds match your search"
+                action={
+                  <Button
+                    onClick={() => {
+                      setQ("");
+                      setCat("All");
+                    }}
+                  >
+                    Clear search and category
+                  </Button>
+                }
+              />
+            ) : view === "uncounted" ? (
+              <EmptyState compact icon={<ClipboardCheck />} title="Every seed has been counted" action={<Button onClick={() => setView("all")}>Show all seeds</Button>} />
+            ) : (
+              <EmptyState compact title={view === "low" ? "Nothing is low or out of stock" : "No seeds have packets available"} action={<Button onClick={() => setView("all")}>Show all seeds</Button>} />
+            )
+          ) : (
+            <>
+              {/* Wide screens: table */}
+              <Card className="relative hidden overflow-x-auto xl:block">
+                <table className={tableCls.table}>
+                  <thead className={tableCls.thead}>
+                    <tr>
+                      <th className={`${tableCls.th} min-w-56`}>Seed</th>
+                      <th className={`${tableCls.th} hidden 2xl:table-cell`}>Category</th>
+                      <th className={tableCls.thNum}>On hand</th>
+                      <th className={tableCls.thNum}>Reserved</th>
+                      <th className={tableCls.thNum}>Available</th>
+                      <th className={tableCls.th}>Status</th>
+                      <th className={`${tableCls.th} hidden lg:table-cell`}>Location</th>
+                      <th className={`${tableCls.th} text-right`}>
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seeds.map((s) => (
+                      <tr key={s.id} className={`${tableCls.tr} group hover:bg-sage-50`}>
+                        <td className={tableCls.td}>
+                          <button className="whitespace-nowrap text-left hover:underline" onClick={() => setSelectedId(s.id)}>
+                            <span className="font-semibold text-forest-900">{s.name}</span>
+                            {s.variety && <span className="text-muted"> · {s.variety}</span>}
+                          </button>
+                        </td>
+                        <td className={`${tableCls.td} hidden whitespace-nowrap text-muted 2xl:table-cell`}>{s.category}</td>
+                        <td className={tableCls.tdNum}>
+                          <Qty value={s.physical_quantity} />
+                        </td>
+                        <td className={`${tableCls.tdNum} text-muted`}>{s.physical_quantity === null ? "—" : fmtNum(s.reserved_quantity)}</td>
+                        <td className={`${tableCls.tdNum} font-semibold text-forest-900`}>
+                          {s.physical_quantity === null ? <span title="Unknown until counted" className="font-normal text-muted">—</span> : fmtNum(availableQuantity(s)!)}
+                        </td>
+                        <td className={tableCls.td}>
+                          <StockBadge status={stockStatus(s)} />
+                        </td>
+                        <td className={`${tableCls.td} hidden whitespace-nowrap text-muted lg:table-cell`}>{s.storage_location ?? "—"}</td>
+                        <td className={tableCls.td}>
+                          <div className="flex justify-end gap-1.5">
+                            {countButton(s)}
+                            <ActionMenu label={`More actions for ${seedLabel(s)}`} items={menuFor(s)} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <TableFooter shown={seeds.length} total={all.length} />
+              </Card>
+
+              {/* Phones and tablets: one card per seed with name, status, figures and the count action */}
+              <ul className="grid gap-2 sm:grid-cols-2 xl:hidden">
+                {seeds.map((s) => (
+                  <li key={s.id} className="rounded-lg border border-sage-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <button className="min-w-0 text-left" onClick={() => setSelectedId(s.id)}>
+                        <p className="font-semibold text-forest-900">{s.name}</p>
+                        {s.variety && <p className="text-sm text-muted">{s.variety}</p>}
+                      </button>
+                      <StockBadge status={stockStatus(s)} />
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="border-t border-sage-100 px-4 py-2 text-xs text-muted">
-            Available = physical − reserved. Packets are reserved when an order is approved and deducted from physical stock when it&apos;s delivered.
-          </p>
-        </Card>
+                    <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                      <MiniFigure label="On hand">
+                        {s.physical_quantity === null ? <span className="text-sm font-medium text-amber-800">Not counted</span> : fmtNum(s.physical_quantity)}
+                      </MiniFigure>
+                      <MiniFigure label="Reserved">{s.physical_quantity === null ? "—" : fmtNum(s.reserved_quantity)}</MiniFigure>
+                      <MiniFigure label="Available">{s.physical_quantity === null ? "—" : fmtNum(availableQuantity(s)!)}</MiniFigure>
+                    </dl>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className="truncate text-xs text-muted">{s.storage_location ?? s.category}</span>
+                      <div className="flex gap-1.5">
+                        {countButton(s)}
+                        <ActionMenu label={`More actions for ${seedLabel(s)}`} items={menuFor(s)} />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+                <li className="px-1 text-xs text-muted sm:col-span-2">
+                  Showing {fmtNum(seeds.length)} of {fmtNum(all.length)} seeds. Available = on hand − reserved.
+                </li>
+              </ul>
+            </>
+          )}
+        </>
       )}
+
+      <Drawer
+        open={selected !== null}
+        onClose={() => setSelectedId(null)}
+        title={selected ? seedLabel(selected) : ""}
+        subtitle={selected && <StockBadge status={stockStatus(selected)} />}
+        footer={
+          selected && (
+            <>
+              <Button variant="ghost" className="mr-auto text-red-700 hover:bg-red-50" onClick={() => remove(selected)}>
+                <Trash2 /> Delete
+              </Button>
+              <Button onClick={() => setEditing(selected)}>
+                <Pencil /> Edit details
+              </Button>
+              <Button variant="primary" onClick={() => setCountingId(selected.id)}>
+                <ClipboardCheck /> {selected.physical_quantity === null ? "Count stock" : "Recount"}
+              </Button>
+            </>
+          )
+        }
+      >
+        {selected && <SeedDetail seed={selected} />}
+      </Drawer>
 
       <Modal open={editing !== null} onClose={() => setEditing(null)} title={editing === "new" ? "Add seed" : "Edit seed"}>
         {editing !== null && <SeedForm seed={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
       </Modal>
-      <Modal open={counting !== null} onClose={() => setCounting(null)} title="Record stock count">
-        {counting && <StockCountForm seed={counting} onDone={() => setCounting(null)} />}
+      <Modal open={counting !== null} onClose={() => setCountingId(null)} title="Record stock count">
+        {counting && (
+          <StockCountForm
+            key={counting.id}
+            seed={counting}
+            next={nextToCount(counting)}
+            onDone={(next) => setCountingId(next?.id ?? null)}
+          />
+        )}
       </Modal>
-      <Modal open={history !== null} onClose={() => setHistory(null)} title={history ? `History — ${seedLabel(history)}` : ""} wide>
-        {history && <MovementHistory seed={history} />}
-      </Modal>
-      <Modal open={importing} onClose={() => setImporting(false)} title="Import inventory from CSV" wide>
-        {importing && <InventoryImport onDone={() => setImporting(false)} />}
+      <Modal
+        open={importing}
+        onClose={() => {
+          setImportOpen(false);
+          setImportParam(null);
+        }}
+        title="Import inventory from CSV"
+        wide
+      >
+        {importing && (
+          <InventoryImport
+            onDone={() => {
+              setImportOpen(false);
+              setImportParam(null);
+            }}
+          />
+        )}
       </Modal>
     </>
+  );
+}
+
+function TableFooter({ shown, total }: { shown: number; total: number }) {
+  return (
+    <p className="border-t border-sage-100 px-4 py-2 text-xs text-muted">
+      Showing {fmtNum(shown)} of {fmtNum(total)} seeds. Available = on hand − reserved. Packets are reserved when an order is approved and leave on-hand stock when it&apos;s delivered.
+    </p>
+  );
+}
+
+function MiniFigure({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-md bg-sage-50 px-2 py-1.5">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="font-semibold tabular-nums text-forest-900">{children}</dd>
+    </div>
+  );
+}
+
+function SeedDetail({ seed }: { seed: Seed }) {
+  const counted = seed.physical_quantity !== null;
+  return (
+    <div className="space-y-5 text-sm">
+      <section aria-label="Stock">
+        <dl className="grid grid-cols-3 overflow-hidden rounded-lg border border-sage-200">
+          <div className="px-3 py-2.5">
+            <dt className="text-xs text-muted">On hand</dt>
+            <dd className="mt-0.5 text-lg font-semibold text-forest-900">
+              <Qty value={seed.physical_quantity} />
+            </dd>
+          </div>
+          <div className="border-l border-sage-200 px-3 py-2.5">
+            <dt className="text-xs text-muted">Reserved</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums text-forest-900">{counted ? fmtNum(seed.reserved_quantity) : "—"}</dd>
+          </div>
+          <div className="border-l border-sage-200 bg-forest-50/50 px-3 py-2.5">
+            <dt className="text-xs text-muted">Available</dt>
+            <dd className="mt-0.5 text-lg font-semibold tabular-nums text-forest-900">{counted ? fmtNum(availableQuantity(seed)!) : "—"}</dd>
+          </div>
+        </dl>
+        <p className="mt-2 text-xs text-muted">
+          {counted
+            ? "Available = on hand − reserved. Reserved packets belong to approved orders that haven’t been delivered."
+            : "This seed hasn’t been counted. Unknown stock isn’t zero, and it can’t be allocated until someone counts it."}
+        </p>
+      </section>
+
+      <section>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Details</h3>
+        <dl className="divide-y divide-sage-100 rounded-lg border border-sage-200">
+          <DetailRow label="Category">{seed.category}</DetailRow>
+          <DetailRow label="Storage location">{seed.storage_location ?? "—"}</DetailRow>
+          <DetailRow label="Unit">{seed.unit}</DetailRow>
+          <DetailRow label="Low-stock alert">{seed.low_stock_threshold === null ? "Not set" : `At ${fmtNum(seed.low_stock_threshold)} available or fewer`}</DetailRow>
+          {seed.description && <DetailRow label="Description">{seed.description}</DetailRow>}
+          <DetailRow label="Last updated">{fmtDate(seed.updated_at, true)}</DetailRow>
+        </dl>
+      </section>
+
+      <section>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Stock history</h3>
+        <MovementHistory seed={seed} />
+      </section>
+    </div>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[8.5rem_1fr] gap-2 px-3 py-2">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-forest-900">{children}</dd>
+    </div>
   );
 }
 
@@ -285,7 +516,7 @@ function SeedForm({ seed, onDone }: { seed: Seed | null; onDone: () => void }) {
       <Field label="Description" className="sm:col-span-2">
         <textarea className={inputCls} rows={2} {...register("description")} />
       </Field>
-      {seed && <p className="text-xs text-muted sm:col-span-2">To change quantities, use “Update” on the inventory row so the change is recorded in the stock history.</p>}
+      {seed && <p className="text-xs text-muted sm:col-span-2">To change quantities, use Count or Recount so the change is recorded in the stock history.</p>}
       <div className="flex justify-end gap-2 sm:col-span-2">
         <Button type="button" onClick={onDone}>
           Cancel
@@ -298,7 +529,7 @@ function SeedForm({ seed, onDone }: { seed: Seed | null; onDone: () => void }) {
   );
 }
 
-function StockCountForm({ seed, onDone }: { seed: Seed; onDone: () => void }) {
+function StockCountForm({ seed, next: nextSeed, onDone }: { seed: Seed; next: Seed | null; onDone: (next: Seed | null) => void }) {
   const { mutate, toast } = useData();
   const [value, setValue] = useState(seed.physical_quantity?.toString() ?? "");
   const [unknown, setUnknown] = useState(false);
@@ -307,14 +538,15 @@ function StockCountForm({ seed, onDone }: { seed: Seed; onDone: () => void }) {
   const valid = unknown || /^\d+$/.test(value.trim());
   const next = unknown ? null : Number(value);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!valid) return;
+    const goNext = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "next";
     setBusy(true);
     try {
       await mutate(`/api/seeds/${seed.id}/stock`, { physical_quantity: next, notes: notes || null });
       toast(`Stock count saved for ${seedLabel(seed)}`);
-      onDone();
+      onDone(goNext ? nextSeed : null);
     } catch (err) {
       toast((err as Error).message, "error");
     } finally {
@@ -324,7 +556,7 @@ function StockCountForm({ seed, onDone }: { seed: Seed; onDone: () => void }) {
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="rounded-xl bg-sage-50 p-3 text-sm">
+      <div className="rounded-md bg-sage-50 p-3 text-sm">
         <p className="font-medium text-forest-900">{seedLabel(seed)}</p>
         <p className="mt-1 text-muted">
           Currently: <Qty value={seed.physical_quantity} /> on hand · {seed.reserved_quantity} reserved for approved orders
@@ -343,7 +575,7 @@ function StockCountForm({ seed, onDone }: { seed: Seed; onDone: () => void }) {
           Mark as not counted (unknown)
         </label>
       )}
-      <Field label="Note" hint="Optional, e.g. “Recount after spring sort”">
+      <Field label="Reason or note" hint="Optional, saved in the stock history, e.g. “Recount after spring sort”">
         <input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </Field>
       {valid && next !== null && seed.physical_quantity !== null && (
@@ -353,9 +585,14 @@ function StockCountForm({ seed, onDone }: { seed: Seed; onDone: () => void }) {
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <Button type="button" onClick={onDone}>
+        <Button type="button" onClick={() => onDone(null)}>
           Cancel
         </Button>
+        {nextSeed && (
+          <Button type="submit" value="next" disabled={!valid || busy} title={`Then count ${seedLabel(nextSeed)}`}>
+            Save and count next
+          </Button>
+        )}
         <Button type="submit" variant="primary" disabled={!valid || busy}>
           Save count
         </Button>
@@ -370,46 +607,36 @@ function MovementHistory({ seed }: { seed: Seed }) {
   const moves = state!.snapshot.inventory_movements
     .filter((m) => m.seed_id === seed.id)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
-  if (!moves.length) return <EmptyState title="No stock movements yet">This seed hasn&apos;t been counted.</EmptyState>;
+  if (!moves.length) return <p className="rounded-lg border border-dashed border-sage-300 px-3 py-4 text-center text-muted">No stock movements yet.</p>;
   const tone = { initial: "green", adjustment: "blue", reservation: "teal", release: "slate", fulfillment: "amber" } as const;
   return (
-    <table className="w-full text-sm">
-      <thead className="text-left text-xs uppercase tracking-wide text-muted">
-        <tr>
-          <th className="py-2 font-medium">When</th>
-          <th className="py-2 font-medium">Movement</th>
-          <th className="py-2 text-right font-medium">Change</th>
-          <th className="py-2 text-right font-medium">Physical / reserved after</th>
-          <th className="py-2 pl-4 font-medium">Notes</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-sage-100">
-        {moves.map((m) => (
-          <tr key={m.id}>
-            <td className="py-2 text-muted">{fmtDate(m.created_at, true)}</td>
-            <td className="py-2">
-              <Badge tone={tone[m.movement_type]}>{MOVEMENT_LABELS[m.movement_type]}</Badge>
-            </td>
-            <td className="py-2 text-right tabular-nums">
+    <ol className="divide-y divide-sage-100 rounded-lg border border-sage-200">
+      {moves.map((m) => (
+        <li key={m.id} className="px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <Badge tone={tone[m.movement_type]}>{MOVEMENT_LABELS[m.movement_type]}</Badge>
+            <span className="font-semibold tabular-nums text-forest-900">
               {m.quantity > 0 ? "+" : ""}
-              {m.quantity}
-            </td>
-            <td className="py-2 text-right tabular-nums">
-              {m.physical_after ?? "?"} / {m.reserved_after}
-            </td>
-            <td className="py-2 pl-4 text-muted">
+              {fmtNum(m.quantity)}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {fmtDate(m.created_at, true)} · after: {m.physical_after === null ? "not counted" : `${fmtNum(m.physical_after)} on hand`}, {fmtNum(m.reserved_after)} reserved
+          </p>
+          {m.notes && (
+            <p className="mt-0.5 text-xs text-forest-900">
               {m.order_id && orders.get(m.order_id) ? (
-                <Link href={`/requests/${m.order_id}`} className="hover:text-forest-700 hover:underline">
+                <Link href={`/requests?id=${m.order_id}`} className="hover:underline">
                   {m.notes}
                 </Link>
               ) : (
                 m.notes
               )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            </p>
+          )}
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -467,7 +694,7 @@ function InventoryImport({ onDone }: { onDone: () => void }) {
             <strong>{fileName}</strong>: {rows.length} rows, {validCount} valid
             {rows.length - validCount > 0 && <span className="text-red-700">, {rows.length - validCount} with errors (will be skipped)</span>}.
           </p>
-          <div className="max-h-64 overflow-auto rounded-xl border border-sage-200">
+          <div className="max-h-64 overflow-auto rounded-md border border-sage-200">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-sage-50 text-left text-muted">
                 <tr>
@@ -507,7 +734,7 @@ function InventoryImport({ onDone }: { onDone: () => void }) {
       )}
       {results && (
         <>
-          <ul className="max-h-64 divide-y divide-sage-100 overflow-auto rounded-xl border border-sage-200">
+          <ul className="max-h-64 divide-y divide-sage-100 overflow-auto rounded-md border border-sage-200">
             {results.map((r) => (
               <li key={r.row} className="flex justify-between gap-3 px-3 py-1.5 text-xs">
                 <span>{r.message}</span>

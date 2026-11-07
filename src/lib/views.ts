@@ -99,3 +99,25 @@ export function seedPickList(db: DataSnapshot, orders: Order[]) {
       seedLabel(a.seed).localeCompare(seedLabel(b.seed)),
   );
 }
+
+/**
+ * Seed Requests views. The four top-level views group the seven statuses by
+ * what staff do next; every status belongs to exactly one of the first three.
+ */
+export type RequestView = "open" | "progress" | "done" | "all";
+export const REQUEST_VIEW_STATUSES: Record<RequestView, OrderStatus[]> = {
+  open: ["Received", "Under Review"],
+  progress: ["Approved", "Preparing", "Ready"],
+  done: ["Delivered", "Cancelled"],
+  all: [...ORDER_STATUSES],
+};
+
+/** Seed Inventory quick views, built on the existing stock rules. */
+export type InventoryView = "all" | "uncounted" | "low" | "allocatable";
+export const INVENTORY_VIEW_TEST: Record<InventoryView, (s: Seed) => boolean> = {
+  all: () => true,
+  // Unknown stock (null) is "needs count"; a real 0 is counted and is not.
+  uncounted: (s) => s.physical_quantity === null,
+  low: (s) => ["Low Stock", "Out of Stock"].includes(stockStatus(s)),
+  allocatable: (s) => (availableQuantity(s) ?? 0) > 0,
+};

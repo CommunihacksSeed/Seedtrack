@@ -128,7 +128,7 @@ function BundleForm({ bundle, onDone }: { bundle: Bundle | null; onDone: () => v
                 ))}
               </select>
               <input
-                className={`${inputCls} w-20 text-right`}
+                className={`${inputCls} w-20! text-right`}
                 inputMode="numeric"
                 value={r.quantity}
                 onChange={(e) => setRows((rs) => rs.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)))}
@@ -168,7 +168,7 @@ function AllocationCard({ rule }: { rule: AppSettings["allocation"] }) {
   const [busy, setBusy] = useState(false);
   const num = (k: "fixed" | "students_per_packet" | "min" | "max") => (
     <input
-      className={`${inputCls} w-20 text-right`}
+      className={`${inputCls} w-20! text-right`}
       inputMode="numeric"
       value={draft[k]}
       onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
@@ -215,7 +215,7 @@ function AllocationCard({ rule }: { rule: AppSettings["allocation"] }) {
             ["per_students", "Based on number of students", null],
           ] as const
         ).map(([mode, label, hint]) => (
-          <label key={mode} className="flex cursor-pointer items-start gap-3 rounded-xl border border-sage-200 p-3 has-[:checked]:border-forest-400 has-[:checked]:bg-forest-50/50">
+          <label key={mode} className="flex cursor-pointer items-start gap-3 rounded-md border border-sage-200 p-3 has-[:checked]:border-forest-400 has-[:checked]:bg-forest-50/50">
             <input type="radio" name="mode" className="mt-1 accent-forest-600" checked={draft.mode === mode} onChange={() => setDraft((d) => ({ ...d, mode }))} />
             <span className="flex-1">
               <span className="block font-medium text-forest-900">{label}</span>

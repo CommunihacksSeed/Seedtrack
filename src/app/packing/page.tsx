@@ -5,7 +5,7 @@ import { useState } from "react";
 import clsx from "clsx";
 import { CheckCircle2, Circle, ClipboardList, PackageOpen, Printer, Sprout, Truck, UserRound } from "lucide-react";
 import { useData } from "@/components/data-provider";
-import { Button, LinkButton, Card, EmptyState, Loading, PageHeader, StatusBadge, fmtDate, inputCls } from "@/components/ui";
+import { Button, LinkButton, Card, EmptyState, ErrorState, Loading, PageHeader, SectionTitle, SegmentedTabs, StatusBadge, Toolbar, fmtDate, fmtNum, inputCls } from "@/components/ui";
 import { seedLabel } from "@/lib/domain";
 import { seedPickList } from "@/lib/views";
 import type { Order, OrderItem, Seed } from "@/lib/types";
@@ -13,10 +13,11 @@ import type { Order, OrderItem, Seed } from "@/lib/types";
 type View = "seed" | "order";
 
 export default function PackingPage() {
-  const { state } = useData();
+  const { state, error, refresh } = useData();
   const [stewardFilter, setStewardFilter] = useState("");
   const [view, setView] = useState<View>("seed");
-  if (!state) return <Loading />;
+  if (error && !state) return <ErrorState message={error} onRetry={refresh} />;
+  if (!state) return <Loading label="Loading packing queue" />;
   const db = state.snapshot;
   const seeds = new Map(db.seeds.map((s) => [s.id, s]));
   const byOldest = (a: Order, b: Order) => (a.approved_at ?? a.submitted_at).localeCompare(b.approved_at ?? b.submitted_at);
@@ -29,53 +30,44 @@ export default function PackingPage() {
     <>
       <PageHeader
         title="Packing Queue"
-        subtitle={
-          view === "seed"
-            ? "Pack one seed at a time: each card shows the total packets needed across all approved orders, then how many go to each order."
-            : "Pack one order at a time: tick off its items, then mark it ready."
-        }
+        subtitle="Pack approved orders, then mark them ready. Delivering an order deducts its stock."
         actions={
-          <>
-            <div className="flex rounded-xl border border-sage-200 bg-white p-0.5" role="tablist" aria-label="Packing view">
-              {(["seed", "order"] as View[]).map((v) => (
-                <button
-                  key={v}
-                  role="tab"
-                  aria-selected={view === v}
-                  onClick={() => setView(v)}
-                  className={clsx(
-                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium",
-                    view === v ? "bg-forest-600 text-white" : "text-forest-800 hover:bg-sage-50",
-                  )}
-                >
-                  {v === "seed" ? <Sprout size={15} /> : <ClipboardList size={15} />} {v === "seed" ? "By seed" : "By order"}
-                </button>
-              ))}
-            </div>
-            {view === "seed" && toPack.length > 0 && (
-              <LinkButton href="/packing/pick-list">
-                <Printer size={16} /> Print pick list
-              </LinkButton>
-            )}
-            <div className="relative">
-              <UserRound size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-              <input className={`${inputCls} w-52 pl-9`} placeholder="Show my orders (name)…" value={stewardFilter} onChange={(e) => setStewardFilter(e.target.value)} aria-label="Filter by Seed Steward" />
-            </div>
-          </>
+          view === "seed" &&
+          toPack.length > 0 && (
+            <LinkButton href="/packing/pick-list">
+              <Printer /> Print pick list
+            </LinkButton>
+          )
         }
       />
 
+      <Toolbar>
+        <SegmentedTabs
+          label="Packing view"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "seed", label: "By seed", icon: <Sprout /> },
+            { value: "order", label: "By order", icon: <ClipboardList /> },
+          ]}
+        />
+        <div className="relative md:ml-auto">
+          <UserRound size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+          <input className={`${inputCls} pl-9 md:w-60!`} placeholder="Show one steward’s orders" value={stewardFilter} onChange={(e) => setStewardFilter(e.target.value)} aria-label="Filter by Seed Steward" />
+        </div>
+      </Toolbar>
+
+      <SectionTitle count={toPack.length}>
+        <PackageOpen size={16} className="text-forest-600" aria-hidden /> To pack
+      </SectionTitle>
       {view === "seed" ? (
         <SeedView orders={toPack} />
       ) : (
         <section>
-          <h2 className="mb-3 flex items-center gap-2 font-semibold text-forest-900">
-            <PackageOpen size={18} /> To pack <span className="text-sm font-normal text-muted">({toPack.length})</span>
-          </h2>
           {toPack.length === 0 ? (
-            <EmptyState title="Nothing to pack right now">Approved orders show up here.</EmptyState>
+            <EmptyState compact title="Nothing to pack right now">Approved orders show up here.</EmptyState>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               {toPack.map((o) => (
                 <PackCard key={`${o.id}-${o.updated_at}`} order={o} items={items(o)} seeds={seeds} />
               ))}
@@ -85,13 +77,22 @@ export default function PackingPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="mb-3 flex items-center gap-2 font-semibold text-forest-900">
-          <Truck size={18} /> Ready for delivery <span className="text-sm font-normal text-muted">({ready.length})</span>
-        </h2>
+        <SectionTitle
+          count={ready.length}
+          action={
+            ready.length > 0 && (
+              <LinkButton href="/deliveries" size="sm">
+                <Truck /> Plan deliveries
+              </LinkButton>
+            )
+          }
+        >
+          <Truck size={16} className="text-forest-600" aria-hidden /> Ready for delivery
+        </SectionTitle>
         {ready.length === 0 ? (
-          <EmptyState title="No packed orders waiting" />
+          <EmptyState compact title="No packed orders waiting">Orders appear here after they’re marked ready.</EmptyState>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             {ready.map((o) => (
               <PackCard key={`${o.id}-${o.updated_at}`} order={o} items={items(o)} seeds={seeds} />
             ))}
@@ -137,7 +138,7 @@ function SeedView({ orders }: { orders: Order[] }) {
   }
 
   if (orders.length === 0)
-    return <EmptyState title="Nothing to pack right now">Approved orders show up here, grouped by seed.</EmptyState>;
+    return <EmptyState compact title="Nothing to pack right now">Approved orders show up here, grouped by seed.</EmptyState>;
 
   const totalPackets = groups.reduce((a, g) => a + g.total, 0);
   const packedPackets = groups.reduce((a, g) => a + g.packed, 0);
@@ -147,14 +148,14 @@ function SeedView({ orders }: { orders: Order[] }) {
 
   return (
     <>
-      <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm">
+      <Card className="mb-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
         <span>
-          <strong className="text-forest-900">{groups.length}</strong> seed varieties ·{" "}
-          <strong className="text-forest-900">{totalPackets}</strong> packets · <strong className="text-forest-900">{orders.length}</strong> orders
+          <strong className="text-forest-900">{groups.length}</strong> varieties · <strong className="text-forest-900">{fmtNum(totalPackets)}</strong> packets ·{" "}
+          <strong className="text-forest-900">{orders.length}</strong> orders
         </span>
         <span className="flex items-center gap-3">
-          <span className="h-2 w-40 rounded-full bg-sage-100">
-            <span className="block h-2 rounded-full bg-forest-500" style={{ width: `${totalPackets ? (packedPackets / totalPackets) * 100 : 0}%` }} />
+          <span className="h-2 w-40 rounded-full bg-sage-100" role="progressbar" aria-valuemin={0} aria-valuemax={totalPackets} aria-valuenow={packedPackets} aria-label="Packets packed">
+            <span className="block h-2 rounded-full bg-forest-500 transition-[width]" style={{ width: `${totalPackets ? (packedPackets / totalPackets) * 100 : 0}%` }} />
           </span>
           <span className="tabular-nums text-muted">
             {packedPackets}/{totalPackets} packed
@@ -162,12 +163,12 @@ function SeedView({ orders }: { orders: Order[] }) {
         </span>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {groups.map((g) => {
           const done = g.packed === g.total;
           return (
             <Card key={g.seed.id} className={clsx(done && "border-forest-200 bg-forest-50/30")}>
-              <div className="flex items-start justify-between gap-3 border-b border-sage-100 px-5 py-4">
+              <div className="flex items-start justify-between gap-3 border-b border-sage-100 px-4 py-3">
                 <div>
                   <p className="font-semibold text-forest-900">{seedLabel(g.seed)}</p>
                   <p className="text-xs text-muted">
@@ -176,7 +177,7 @@ function SeedView({ orders }: { orders: Order[] }) {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-semibold leading-none tabular-nums text-forest-900">{g.total}</p>
+                  <p className="text-3xl font-semibold leading-none tabular-nums text-forest-900">{fmtNum(g.total)}</p>
                   <p className="mt-1 text-xs text-muted">{g.seed.unit} to pack</p>
                 </div>
               </div>
@@ -186,7 +187,7 @@ function SeedView({ orders }: { orders: Order[] }) {
                   return (
                     <li key={item.id}>
                       <button
-                        className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm hover:bg-sage-50 disabled:cursor-default disabled:hover:bg-transparent"
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-sage-50 disabled:cursor-default disabled:hover:bg-transparent"
                         disabled={busy}
                         onClick={() => pack([{ order, item, qty: packed ? 0 : item.approved_quantity! }])}
                         aria-pressed={packed}
@@ -202,7 +203,7 @@ function SeedView({ orders }: { orders: Order[] }) {
                   );
                 })}
               </ul>
-              <div className="flex items-center justify-between gap-3 border-t border-sage-100 px-5 py-3">
+              <div className="flex items-center justify-between gap-3 border-t border-sage-100 px-4 py-3">
                 <span className="text-xs tabular-nums text-muted">
                   {g.packed} / {g.total} packed
                 </span>
@@ -218,7 +219,7 @@ function SeedView({ orders }: { orders: Order[] }) {
                       )
                     }
                   >
-                    <CheckCircle2 size={14} /> {done ? "All packed" : `Pack all ${g.total}`}
+                    <CheckCircle2 /> {done ? "All packed" : `Pack all ${g.total}`}
                   </Button>
                 )}
               </div>
@@ -229,22 +230,22 @@ function SeedView({ orders }: { orders: Order[] }) {
 
       {fullyPacked.length > 0 && (
         <Card className="mt-4 border-forest-200">
-          <div className="border-b border-sage-100 px-5 py-3">
+          <div className="border-b border-sage-100 px-4 py-3">
             <p className="font-semibold text-forest-900">Orders with everything packed</p>
             <p className="text-xs text-muted">Bag them up and mark them ready for delivery.</p>
           </div>
           <ul className="divide-y divide-sage-100">
             {fullyPacked.map((o) => (
-              <li key={o.id} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
-                <Link href={`/requests/${o.id}`} className="hover:underline">
+              <li key={o.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                <Link href={`/requests?id=${o.id}`} className="hover:underline">
                   <span className="font-medium text-forest-900">#{o.order_number}</span> {o.organization_name}
                 </Link>
                 <span className="flex gap-2">
                   <LinkButton size="sm" href={`/packing/${o.id}/print`}>
-                    <Printer size={14} /> Slip
+                    <Printer /> Slip
                   </LinkButton>
                   <Button size="sm" variant="primary" onClick={() => ready(o)} disabled={busy}>
-                    <CheckCircle2 size={14} /> Mark ready
+                    <CheckCircle2 /> Mark ready
                   </Button>
                 </span>
               </li>
@@ -278,9 +279,9 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
 
   return (
     <Card className={clsx("flex flex-col", order.status === "Ready" && "border-forest-200 bg-forest-50/30")}>
-      <div className="flex items-start justify-between gap-3 border-b border-sage-100 px-5 py-4">
+      <div className="flex items-start justify-between gap-3 border-b border-sage-100 px-4 py-3">
         <div>
-          <Link href={`/requests/${order.id}`} className="font-semibold text-forest-900 hover:underline">
+          <Link href={`/requests?id=${order.id}`} className="font-semibold text-forest-900 hover:underline">
             #{order.order_number} · {order.organization_name}
           </Link>
           <p className="text-xs text-muted">Approved {fmtDate(order.approved_at)}</p>
@@ -288,7 +289,7 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
         <StatusBadge status={order.status} />
       </div>
 
-      <div className="flex-1 space-y-3 px-5 py-4">
+      <div className="flex-1 space-y-3 px-4 py-3">
         <div className="flex items-center gap-2">
           <UserRound size={15} className="shrink-0 text-muted" />
           <input
@@ -302,11 +303,11 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
           />
         </div>
         {order.special_requests && (
-          <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
             <strong>Note:</strong> {order.special_requests}
           </p>
         )}
-        <ul className="divide-y divide-sage-100 rounded-xl border border-sage-200">
+        <ul className="divide-y divide-sage-100 rounded-md border border-sage-200">
           {items.map((i) => {
             const s = i.seed_id ? seeds.get(i.seed_id) : undefined;
             const packed = i.packed_quantity === i.approved_quantity;
@@ -332,9 +333,9 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
       </div>
 
       {(
-        <div className="flex flex-wrap justify-end gap-2 border-t border-sage-100 px-5 py-3">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-sage-100 px-4 py-3">
           <LinkButton href={`/packing/${order.id}/print`} size="sm">
-              <Printer size={14} /> Packing list
+              <Printer /> Packing list
             </LinkButton>
           {order.status === "Approved" && (
             <Button size="sm" onClick={() => act({ action: "start_preparing" }, "Marked as preparing")} disabled={busy}>
@@ -343,12 +344,12 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
           )}
           {packing && (
             <Button size="sm" variant="primary" onClick={() => act({ action: "ready" }, `#${order.order_number} is ready`)} disabled={busy || !allPacked} title={allPacked ? undefined : "Pack every item first"}>
-              <CheckCircle2 size={14} /> Mark ready
+              <CheckCircle2 /> Mark ready
             </Button>
           )}
           {order.status === "Ready" && (
             <Button size="sm" variant="primary" onClick={() => act({ action: "deliver" }, `#${order.order_number} delivered — stock deducted`)} disabled={busy}>
-              <Truck size={14} /> Mark delivered
+              <Truck /> Mark delivered
             </Button>
           )}
         </div>

@@ -116,7 +116,11 @@ export default function DeliveriesPage() {
           <MapPinned size={16} className="text-forest-600" />
           Start: <strong className="text-forest-900">{view.d.depot_name}</strong>
           {view.d.depot_address && <span className="text-muted">· {view.d.depot_address}</span>}
-          {!view.depot && <Badge tone="amber">Set the start point in Route settings</Badge>}
+          {!view.depot && (
+            <Badge tone="amber" className="h-auto whitespace-normal py-1">
+              Set the start point in Route settings
+            </Badge>
+          )}
         </span>
         <div className="w-72">
           <Switch label="Include orders still being packed" checked={includePacking} onChange={setIncludePacking} />
@@ -235,9 +239,9 @@ export default function DeliveriesPage() {
             {view.trips.map((trip, ti) => {
               const link = googleMapsLink(view.depot!, trip.stops, view.d.return_to_depot);
               return (
-                <Card key={ti} className="print-area break-inside-avoid">
-                  <div className="flex items-start justify-between gap-3 border-b border-sage-100 px-5 py-4">
-                    <div>
+                <Card key={ti} className="print-area min-w-0 break-inside-avoid">
+                  <div className="flex flex-col gap-3 border-b border-sage-100 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                       <p className="font-semibold text-forest-900">
                         Trip {ti + 1} · {trip.stops.length} stop{trip.stops.length === 1 ? "" : "s"}
                       </p>
@@ -422,7 +426,7 @@ function ManualLocation({ order, onDone }: { order: Order; onDone: () => void })
   }
   return (
     <div className="space-y-4 text-sm">
-      {order.mailing_address && <p className="rounded-xl bg-sage-50 p-3">{order.mailing_address}</p>}
+      {order.mailing_address && <p className="rounded-md bg-sage-50 p-3">{order.mailing_address}</p>}
       <Field label="Coordinates (latitude, longitude)" hint="Tip: right-click the place in Google Maps and click the numbers to copy them." error={text && !parsed ? "Use the format 45.4215, -75.6972" : undefined}>
         <input className={inputCls} value={text} onChange={(e) => setText(e.target.value)} placeholder="45.4215, -75.6972" autoFocus />
       </Field>
