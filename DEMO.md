@@ -37,9 +37,10 @@
 - Under **Orders with everything packed**, open the order's **Slip** (no requester contact details), then **Mark ready**. Ready only works once every item is packed.
 - **By order** switches back to one card per order.
 
-## 2:35 — Deliver (15s)
+## 2:35 — Deliver (20s)
 
-- **Mark delivered.** Inventory now shows Tomato **Physical 40 · Reserved 0 · Available 40**.
+- **Deliveries**: every drop-off order is already on the map. SeedFlow shows the **best route** from the seed hub, with km, time and stop order. Click **Open in Google Maps** to drive it.
+- Mark #1004 **Delivered** from the route. Inventory now shows Tomato **Physical 40 · Reserved 0 · Available 40**.
 - Refresh the page: the numbers persist.
 
 ## 2:50 — Reports (10s)
@@ -47,6 +48,11 @@
 - **Reports**: #1004 is under completed orders, and distribution by category and organization updated. Export any table to CSV.
 
 **Close:** “Every stock change runs as one locked database transaction in Postgres. We tested two simultaneous approvals fighting over the same seeds, and only one won. Next steps are Cognito API sync once we have credentials, and individual staff logins.”
+
+## If there's extra time
+
+- **Settings → Notifications**: flip the switch on, approve an order, and the requester's message appears in the log. It's off by default, and staff choose which events send messages.
+- **#1006 review**: click **Add Spring seeds** to expand a bundle, and see the **Suggested** quantities (1 packet per 10 students).
 
 ## Likely judge questions
 

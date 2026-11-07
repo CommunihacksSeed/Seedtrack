@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import clsx from "clsx";
-import { BarChart3, ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X } from "lucide-react";
+import { BarChart3, ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Truck, Warehouse, X } from "lucide-react";
 import { useData } from "./data-provider";
 
 const NAV = [
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/inventory", label: "Seed Inventory", icon: Warehouse },
   { href: "/requests", label: "Seed Requests", icon: ClipboardList },
   { href: "/packing", label: "Packing Queue", icon: Package },
+  { href: "/deliveries", label: "Deliveries", icon: Truck },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -34,12 +35,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
   const { state } = useData();
   const awaiting = state?.snapshot.orders.filter((o) => o.status === "Received" || o.status === "Under Review").length ?? 0;
-  const packing = state?.snapshot.orders.filter((o) => ["Approved", "Preparing", "Ready"].includes(o.status)).length ?? 0;
+  const packing = state?.snapshot.orders.filter((o) => ["Approved", "Preparing"].includes(o.status)).length ?? 0;
+  const ready = state?.snapshot.orders.filter((o) => o.status === "Ready").length ?? 0;
   return (
     <nav className="space-y-1">
       {NAV.map(({ href, label, icon: Icon }) => {
         const active = href === "/" ? path === "/" : path.startsWith(href);
-        const count = href === "/requests" ? awaiting : href === "/packing" ? packing : 0;
+        const count = href === "/requests" ? awaiting : href === "/packing" ? packing : href === "/deliveries" ? ready : 0;
         return (
           <Link
             key={href}

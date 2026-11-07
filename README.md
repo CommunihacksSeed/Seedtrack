@@ -21,6 +21,9 @@ Request → Review → Inventory check → Approval (reserve) → Packing → Re
 | **Seed Requests** | Enter requests by hand, or import CSV/JSON (Cognito exports) with column mapping, row-by-row validation, preview and **duplicate detection by Cognito Entry ID**. Requests without packet quantities import fine; staff decide quantities during review. |
 | **Review & approval** | Match each requested seed to inventory (exact unique matches are automatic; unclear ones are flagged **“Inventory Match Required”**). Set approved quantities, mark items unavailable and add varieties to fill a bundle. Approval **reserves stock atomically** and fails cleanly if anything is short. |
 | **Packing Queue** | Organized **by seed** by default: total packets needed per seed across all approved orders, split by order, with one-click **Pack all** and a printable pick list sorted by shelf. A **By order** view, steward assignment, per-order packing slips (no contact details) and Mark Ready once everything is packed. |
+| **Deliveries** | Choose drop-off, mail or pickup for each order. Drop-off addresses are located on the map (OpenStreetMap lookup or pasted coordinates). SeedFlow plans the **shortest route** from your start point (nearest-neighbour + 2-opt), splits long runs into trips, estimates km and time, and opens each trip in Google Maps. You can print the route sheet and mark stops delivered as you go. |
+| **Notifications** | **Off by default.** Turn them on in Settings and choose the events: new request (to staff), approved / packed / delivered (to the requester), and low stock (to staff). Every message is kept in a log. Real emails go out only if an email service (Resend) is configured. |
+| **Bundles & suggestions** | Define what each bundle (Spring, Fall Harvest, Herbs…) contains, then add a bundle's seeds to a request with one click. An optional rule pre-fills suggested packets when the requester gave no quantity (fixed amount or per number of students). Staff still confirm every number. |
 | **Fulfilment** | Delivering deducts physical stock and releases the reservation **exactly once**. Cancelling releases reservations without touching physical stock. |
 | **Dashboard & Reports** | Stock totals (counted items only), alerts, orders by status, distribution by category and organization, requests over time, outstanding orders and recent activity. CSV exports for inventory, orders, distribution and stock history. |
 | **Cognito Forms** | An adapter boundary, a status page and an optional secret-protected webhook. **No live API calls**, because Cognito's REST API wasn't verified and no credentials were available. Import CSV/JSON exports instead. |
@@ -41,7 +44,7 @@ The local store is for development and demos only. It's safe only with a single 
 
 1. Create a Supabase project.
 2. In the SQL editor, run the migrations in order:
-   `supabase/migrations/0001_schema.sql`, `0002_functions.sql`, `0003_demo_reset.sql`
+   `supabase/migrations/0001_schema.sql`, `0002_functions.sql`, `0003_demo_reset.sql`, `0004_settings_bundles_delivery.sql`
    (or use `supabase db push` with the Supabase CLI).
 3. Optional: load the demo data by running `supabase/seed.sql`. To regenerate it, run `npm run db:seed-sql`.
 4. Copy `.env.example` to `.env.local` and set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `SEEDFLOW_ADMIN_KEY`.
@@ -73,7 +76,7 @@ See [`.env.example`](.env.example). Nothing is required for local development.
 
 Verified while building (Node 22, PostgreSQL 16):
 
-- `npm test`: 18/18 passing. This covers acceptance tests 1–10 from the spec against the domain rules and local store, including concurrent approvals and persistence.
+- `npm test`: 27/27 passing (business rules, local store, route planning, bundles, settings, suggestions). This covers acceptance tests 1–10 from the spec against the domain rules and local store, including concurrent approvals and persistence.
 - `supabase/tests/acceptance.sql`: all SQL acceptance tests pass against the real migrations (allocation, over-allocation, delivery, cancellation, duplicate delivery, unknown stock, missing quantities, duplicate entry IDs).
 - `supabase/tests/concurrency.sh`: passes. Two simultaneous 30-packet approvals against 50 packets: one succeeds, the other is refused with “Insufficient stock”, and 30 stay reserved.
 - `npm run build`, `tsc` and `eslint` are clean. The full demo script was clicked through in a headless browser (approve 50 → 40 available, deliver 50 → 40 physical, persists after refresh, shows in Reports).
@@ -82,6 +85,8 @@ The SQL was tested on plain PostgreSQL 16. The Supabase adapter (`src/lib/store/
 
 ## Known limitations
 
+- **Route distances are estimates:** straight-line distance × 1.3. Use the Google Maps link for real driving directions. Address lookup uses OpenStreetMap's free service, limited to about one address per second.
+- **Email sending** is built for Resend's API but hasn't been tested with a live account. Without a key, notifications are only logged.
 - **Staff access is a shared key**, not individual logins. Replace it with Supabase Auth (per-user roles) before handling real requester data.
 - **No live Cognito sync.** The adapter refuses to guess endpoints. Import exports instead, and finish `src/lib/integrations/cognito.ts` once the API is confirmed.
 - **Partial fulfilment isn't supported.** Orders are delivered in full; to send less, change approved quantities during review. Marked as future work.

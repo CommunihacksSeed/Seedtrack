@@ -194,3 +194,50 @@ describe("other rules", () => {
     expect(demo.orders.filter((o) => o.status === "Delivered")).toHaveLength(2);
   });
 });
+
+describe("bundles, delivery and settings", () => {
+  it("adds bundle items without duplicating seeds already requested", async () => {
+    const { saveBundle, addBundleItems } = await import("../src/lib/domain");
+    const kale = createSeed(db, { name: "Kale", category: "Greens", physical_quantity: 20 });
+    const b = saveBundle(db, null, { name: "Spring", items: [{ seed_id: kale.id, quantity: 2 }, { seed_id: tomato.id, quantity: 3 }] });
+    const { order: o } = order(null); // already has tomato
+    expect(addBundleItems(db, o.id, b.id)).toBe(1);
+    const k = items(o.id).find((i) => i.seed_id === kale.id)!;
+    expect(k.requested_quantity).toBe(2);
+    expect(addBundleItems(db, o.id, b.id)).toBe(0);
+    expect(() => saveBundle(db, null, { name: "spring", items: [] })).toThrow(/already exists/);
+  });
+
+  it("validates delivery details", async () => {
+    const { setDelivery } = await import("../src/lib/domain");
+    const { order: o } = order(1);
+    setDelivery(db, o.id, { delivery_method: "drop-off", delivery_lat: 45.4, delivery_lng: -75.7 });
+    expect(o.delivery_method).toBe("drop-off");
+    expect(() => setDelivery(db, o.id, { delivery_lat: 95 })).toThrow(/out of range/);
+    expect(() => setDelivery(db, o.id, { delivery_lat: null })).toThrow(/both latitude and longitude/);
+    setDelivery(db, o.id, { delivery_lat: null, delivery_lng: null });
+    expect(o.delivery_lat).toBeNull();
+  });
+
+  it("validates settings updates", async () => {
+    const { updateSettings } = await import("../src/lib/domain");
+    expect(db.settings.notifications.enabled).toBe(false); // off by default
+    updateSettings(db, { notifications: { enabled: true, events: { low_stock: false } } });
+    expect(db.settings.notifications.enabled).toBe(true);
+    expect(db.settings.notifications.events.low_stock).toBe(false);
+    expect(db.settings.notifications.events.order_approved).toBe(true);
+    expect(() => updateSettings(db, { allocation: { min: 6, max: 5 } })).toThrow(/Minimum/);
+    expect(() => updateSettings(db, { delivery: { max_stops_per_trip: 0 } })).toThrow();
+  });
+
+  it("suggests quantities from settings", async () => {
+    const { suggestQuantity } = await import("../src/lib/allocation");
+    const a = { mode: "per_students" as const, fixed: 2, students_per_packet: 10, min: 1, max: 5 };
+    expect(suggestQuantity(a, 40)).toBe(4);
+    expect(suggestQuantity(a, 3)).toBe(1);
+    expect(suggestQuantity(a, 200)).toBe(5);
+    expect(suggestQuantity(a, null)).toBe(1);
+    expect(suggestQuantity({ ...a, mode: "fixed" }, 40)).toBe(2);
+    expect(suggestQuantity({ ...a, mode: "none" }, 40)).toBeNull();
+  });
+});

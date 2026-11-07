@@ -3,6 +3,7 @@ import { getStore } from "@/lib/store";
 import { DomainError } from "@/lib/domain";
 import { parseBody, staffWrite } from "@/lib/server/http";
 import { orderInputSchema } from "@/lib/schemas";
+import { notifyLater } from "@/lib/server/notify";
 
 const bodySchema = z.object({ orders: z.array(z.unknown()).max(1000) });
 
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
       }
       try {
         const { order, duplicate } = await store.createOrder({ ...parsed.data, source: parsed.data.source ?? "csv" });
+        if (!duplicate) notifyLater(store, "request_received", { orderId: order.id });
         results.push({
           row: i + 1,
           status: duplicate ? "duplicate" : "imported",

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CATEGORIES } from "./types";
+import { CATEGORIES, DELIVERY_METHODS, NOTIFICATION_EVENTS } from "./types";
 
 const qty = z.number().int("Must be a whole number").min(0, "Must be 0 or more");
 const optText = z.string().max(2000).nullish();
@@ -66,5 +66,53 @@ export const orderActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("ready") }),
   z.object({ action: z.literal("deliver") }),
   z.object({ action: z.literal("cancel"), reason: z.string().max(500).nullish() }),
+  z.object({
+    action: z.literal("set_delivery"),
+    delivery_method: z.enum(DELIVERY_METHODS).nullish(),
+    delivery_lat: z.number().min(-90).max(90).nullish(),
+    delivery_lng: z.number().min(-180).max(180).nullish(),
+  }),
+  z.object({ action: z.literal("add_bundle"), bundle_id: z.string().uuid() }),
 ]);
+
+export const bundleSchema = z.object({
+  name: z.string().trim().min(1, "Bundle name is required").max(100),
+  description: z.string().max(500).nullish(),
+  items: z.array(z.object({ seed_id: z.string().uuid(), quantity: qty.min(1, "At least 1") })).max(100),
+});
+
+const eventsShape = Object.fromEntries(NOTIFICATION_EVENTS.map((e) => [e, z.boolean().optional()])) as Record<
+  (typeof NOTIFICATION_EVENTS)[number],
+  z.ZodOptional<z.ZodBoolean>
+>;
+export const settingsPatchSchema = z.object({
+  notifications: z
+    .object({
+      enabled: z.boolean().optional(),
+      staff_email: z.union([z.string().email("Invalid email"), z.literal("")]).nullish(),
+      events: z.object(eventsShape).partial().optional(),
+    })
+    .optional(),
+  allocation: z
+    .object({
+      mode: z.enum(["none", "fixed", "per_students"]).optional(),
+      fixed: qty.optional(),
+      students_per_packet: qty.optional(),
+      min: qty.optional(),
+      max: qty.optional(),
+    })
+    .optional(),
+  delivery: z
+    .object({
+      depot_name: z.string().max(100).optional(),
+      depot_address: z.string().max(300).nullish(),
+      depot_lat: z.number().min(-90).max(90).nullish(),
+      depot_lng: z.number().min(-180).max(180).nullish(),
+      max_stops_per_trip: qty.optional(),
+      avg_speed_kmh: z.number().positive().max(130).optional(),
+      minutes_per_stop: qty.optional(),
+      return_to_depot: z.boolean().optional(),
+    })
+    .optional(),
+});
 export type OrderAction = z.infer<typeof orderActionSchema>;

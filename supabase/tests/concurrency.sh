@@ -6,7 +6,7 @@ set -euo pipefail
 : "${DATABASE_URL:?set DATABASE_URL to a scratch database}"
 q() { psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 -c "$1"; }
 
-q "truncate order_status_history, inventory_movements, order_items, orders, seeds"
+q "truncate notification_log, order_status_history, inventory_movements, order_items, orders, bundles, seeds"
 SEED=$(q "select (sf_create_seed('{\"name\":\"Tomato\",\"variety\":\"Race\",\"physical_quantity\":50}')).id")
 mk() { q "select sf_create_order('{\"requester_name\":\"R\",\"organization_name\":\"S$1\",\"items\":[{\"requested_seed_name\":\"Tomato Race\",\"requested_quantity\":30}]}')->>'order_id'"; }
 A=$(mk 1); B=$(mk 2)

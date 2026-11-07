@@ -32,7 +32,7 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
 async function load(): Promise<DataSnapshot> {
   const file = dataFile();
   try {
-    return JSON.parse(await fs.readFile(/*turbopackIgnore: true*/ file, "utf8")) as DataSnapshot;
+    return domain.normalizeSnapshot(JSON.parse(await fs.readFile(/*turbopackIgnore: true*/ file, "utf8")) as DataSnapshot);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
     const fresh = buildDemoSnapshot();
@@ -78,6 +78,12 @@ export function createLocalStore(): SeedFlowStore {
     markReady: (id) => mutate((db) => domain.markReady(db, id)),
     deliverOrder: (id) => mutate((db) => domain.deliverOrder(db, id)),
     cancelOrder: (id, reason) => mutate((db) => domain.cancelOrder(db, id, reason)),
+    setDelivery: (id, input) => mutate((db) => domain.setDelivery(db, id, input)),
+    addBundleItems: (id, bundleId) => mutate((db) => domain.addBundleItems(db, id, bundleId)),
+    updateSettings: (patch) => mutate((db) => domain.updateSettings(db, patch)),
+    saveBundle: (id, input) => mutate((db) => domain.saveBundle(db, id, input)),
+    deleteBundle: (id) => mutate((db) => domain.deleteBundle(db, id)),
+    logNotification: (entry) => mutate((db) => void domain.logNotification(db, entry)),
     resetDemo: () => withLock(() => save(buildDemoSnapshot())),
   };
 }

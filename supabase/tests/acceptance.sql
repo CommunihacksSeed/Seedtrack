@@ -2,7 +2,7 @@
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/acceptance.sql
 -- Everything runs in a transaction that is rolled back at the end.
 begin;
-truncate order_status_history, inventory_movements, order_items, orders, seeds;
+truncate notification_log, order_status_history, inventory_movements, order_items, orders, bundles, seeds;
 
 create temp table t_ids (k text primary key, id uuid);
 
