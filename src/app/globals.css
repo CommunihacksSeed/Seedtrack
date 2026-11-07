@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+
+  --color-forest-50: #f1f7f2;
+  --color-forest-100: #dcebdf;
+  --color-forest-200: #bad7c1;
+  --color-forest-300: #8fbb9b;
+  --color-forest-400: #5f9a71;
+  --color-forest-500: #3f7d53;
+  --color-forest-600: #2f6541;
+  --color-forest-700: #275136;
+  --color-forest-800: #21412d;
+  --color-forest-900: #1b3626;
+
+  --color-sage-50: #f6f8f3;
+  --color-sage-100: #edf1e7;
+  --color-sage-200: #dfe6d5;
+
+  --color-cream: #fbfaf6;
+  --color-ink: #1f2a22;
+  --color-muted: #5d6b61;
+}
+
+html {
+  background: var(--color-sage-50);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--color-forest-200);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-forest-500);
+  outline-offset: 2px;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  opacity: 0.6;
+}
+
+@media print {
+  html,
+  body {
+    background: white !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-area {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+}

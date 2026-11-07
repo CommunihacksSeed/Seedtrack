@@ -1,0 +1,42 @@
+{
+  "name": "seedflow-yfs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:seed-sql": "tsx scripts/generate-seed-sql.ts",
+    "test:sql": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -q -f supabase/tests/acceptance.sql"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^7.0.3",
+    "@supabase/supabase-js": "^2.119.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.70.0",
+    "next": "16.4.5",
+    "papaparse": "^5.7.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-hook-form": "^7.91.0",
+    "recharts": "^3.10.1",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^22.20.5",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.5",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.1.0"
+  }
+}

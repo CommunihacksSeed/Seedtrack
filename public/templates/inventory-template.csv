@@ -1,0 +1,4 @@
+name,variety,category,physical_quantity,unit,storage_location,low_stock_threshold,description
+Tomato,Crimson Giant,Fruits / Fruiting Vegetables,50,packets,Shelf A1,10,
+Kale,,Greens,40,packets,Shelf B2,10,
+Basil,,Herbs,,packets,,5,Leave physical_quantity blank if not counted yet

@@ -1,0 +1,14 @@
+[
+  {
+    "Id": "SAMPLE-201",
+    "YourName": "Casey Example",
+    "Email": "casey@example.org",
+    "School": "Example Valley School",
+    "MailingAddress": "3 Demo Ave, Ottawa, ON",
+    "Bundles": ["Spring"],
+    "SeedTypes": ["Cucumber x3", "Basil", "Cherokee Purple Tomato"],
+    "SpecialRequests": "Fictional sample entry",
+    "NumberOfStudents": 30,
+    "DateSubmitted": "2026-11-04"
+  }
+]
