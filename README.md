@@ -30,6 +30,10 @@ Request → Review → Inventory check → Approval (reserve) → Packing → Re
 
 ## Quick start (no database needed)
 
+**On a Mac:** double-click **`Start SeedFlow.command`**. It installs everything on first run (Node 20+ required) and opens http://localhost:3000. If macOS says it's from an unidentified developer, right-click it and choose **Open**.
+
+Or from a terminal:
+
 ```bash
 npm install
 npm run dev
