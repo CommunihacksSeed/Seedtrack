@@ -23,10 +23,7 @@ function Logo() {
       <span className="grid h-9 w-9 place-items-center rounded-xl bg-forest-600 text-white shadow-sm">
         <Sprout size={20} strokeWidth={2.2} />
       </span>
-      <span>
-        <span className="block font-display text-xl font-semibold leading-none text-forest-900">SeedFlow</span>
-        <span className="mt-0.5 block text-[11px] leading-none text-muted">Seed requests → community growth</span>
-      </span>
+      <span className="font-display text-xl font-semibold leading-none text-forest-900">SeedFlow</span>
     </Link>
   );
 }

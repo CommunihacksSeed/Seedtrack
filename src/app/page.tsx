@@ -10,26 +10,15 @@ import {
   Lock,
   Package,
   PackageCheck,
-  Sprout,
   Truck,
   Warehouse,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useData } from "@/components/data-provider";
 import { Card, CardHeader, EmptyState, Loading, PageHeader, StatCard, StockBadge, timeAgo } from "@/components/ui";
 import { availableQuantity, inventorySummary, seedLabel, stockStatus } from "@/lib/domain";
-import { distributionRows, lowStockSeeds, ordersByStatus, requestsOverTime, seedMap, sumBy } from "@/lib/views";
+import { distributionRows, lowStockSeeds, requestsOverTime, seedMap, sumBy } from "@/lib/views";
 import { MOVEMENT_LABELS } from "@/lib/types";
-
-const STATUS_COLORS: Record<string, string> = {
-  Received: "#0ea5e9",
-  "Under Review": "#8b5cf6",
-  Approved: "#14b8a6",
-  Preparing: "#f59e0b",
-  Ready: "#3f7d53",
-  Delivered: "#78716c",
-  Cancelled: "#cbd5e1",
-};
 
 export default function DashboardPage() {
   const { state, error } = useData();
@@ -82,7 +71,6 @@ export default function DashboardPage() {
       toPack: orders.filter((o) => o.status === "Approved" || o.status === "Preparing").length,
       ready: orders.filter((o) => o.status === "Ready").length,
       delivered: orders.filter((o) => o.status === "Delivered").length,
-      byStatus: ordersByStatus(orders).filter((s) => s.count > 0),
       byCategory: sumBy(distributionRows(db), (r) => r.category, (r) => r.quantity),
       overTime: requestsOverTime(orders),
       lowStock: lowStockSeeds(db.seeds).slice(0, 5),
@@ -103,7 +91,6 @@ export default function DashboardPage() {
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Seed varieties" value={inv.varieties} icon={<Sprout size={16} />} hint={`${inv.counted} counted · ${inv.uncounted} not counted`} />
         <StatCard label="Packets on hand" value={inv.physical} icon={<Warehouse size={16} />} hint="Counted items only" />
         <StatCard label="Available packets" value={inv.available} icon={<CheckCircle2 size={16} />} hint="On hand minus reserved" />
         <StatCard label="Reserved packets" value={inv.reserved} icon={<Lock size={16} />} hint="Held for approved orders" />
@@ -153,25 +140,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader title="Orders by status" />
-          <div className="h-64 px-2 py-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={view.byStatus} layout="vertical" margin={{ left: 24, right: 16 }}>
-                <CartesianGrid horizontal={false} stroke="#edf1e7" />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
-                <YAxis type="category" dataKey="status" width={90} tick={{ fontSize: 12 }} />
-                <Tooltip cursor={{ fill: "#f6f8f3" }} />
-                <Bar dataKey="count" name="Orders" radius={[0, 6, 6, 0]}>
-                  {view.byStatus.map((s) => (
-                    <Cell key={s.status} fill={STATUS_COLORS[s.status]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title="Packets distributed by category" subtitle="Delivered orders only" />
           <div className="h-64 px-2 py-4">
