@@ -112,7 +112,7 @@ export function buildDemoSnapshot(): DataSnapshot {
     deliverOrder(db, orderId, daysAgo(at - 2, 13));
   };
 
-  // Historical delivered orders (for reports).
+  // Historical delivered orders (for the dashboard charts).
   const e = createOrder(
     db,
     {

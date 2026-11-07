@@ -10,7 +10,7 @@ Built for **Youth in Food Systems** (a program of Seeds of Diversity Canada) at 
 SeedFlow replaces a manual, fragmented process with one connected workflow:
 
 ```
-Request → Review → Inventory check → Approval (reserve) → Packing → Ready → Delivery (deduct) → Reports
+Request → Review → Inventory check → Approval (reserve) → Packing → Ready → Delivery (deduct)
 ```
 
 ## Features
@@ -25,7 +25,7 @@ Request → Review → Inventory check → Approval (reserve) → Packing → Re
 | **Notifications** | **Off by default.** Turn them on in Settings and choose the events: new request (to staff), approved / packed / delivered (to the requester), and low stock (to staff). Every message is kept in a log. Real emails go out only if an email service (Resend) is configured. |
 | **Bundles & suggestions** | Define what each bundle (Spring, Fall Harvest, Herbs…) contains, then add a bundle's seeds to a request with one click. An optional rule pre-fills suggested packets when the requester gave no quantity (fixed amount or per number of students). Staff still confirm every number. |
 | **Fulfilment** | Delivering deducts physical stock and releases the reservation **exactly once**. Cancelling releases reservations without touching physical stock. |
-| **Dashboard & Reports** | Stock totals (counted items only), alerts, orders by status, distribution by category and organization, requests over time, outstanding orders and recent activity. CSV exports for inventory, orders, distribution and stock history. |
+| **Dashboard** | Stock totals (counted items only), alerts, distribution by category, requests over time and recent activity. CSV exports for inventory, orders and stock history. |
 | **Cognito Forms** | An adapter boundary, a status page and an optional secret-protected webhook. **No live API calls**, because Cognito's REST API wasn't verified and no credentials were available. Import CSV/JSON exports instead. |
 
 ## Running and deploying on Cloudflare

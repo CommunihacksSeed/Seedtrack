@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { BarChart3, ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X } from "lucide-react";
+import { ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X } from "lucide-react";
 import { useData } from "./data-provider";
 import { isPublicPath } from "./public-path";
 import { ErrorState } from "./ui";
@@ -14,7 +14,6 @@ const NAV = [
   { href: "/inventory", label: "Seed Inventory", icon: Warehouse },
   { href: "/requests", label: "Seed Requests", icon: ClipboardList },
   { href: "/packing", label: "Packing Queue", icon: Package },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

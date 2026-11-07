@@ -1,4 +1,4 @@
-/** Derived, read-only views over a snapshot (dashboard, reports, exports). */
+/** Derived, read-only views over a snapshot (dashboard, packing, exports). */
 import { availableQuantity, seedLabel, stockStatus } from "./domain";
 import type { DataSnapshot, Order, OrderStatus, Seed } from "./types";
 import { ORDER_STATUSES } from "./types";

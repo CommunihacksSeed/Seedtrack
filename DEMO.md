@@ -43,10 +43,6 @@
 - Mark #1004 **Delivered** from the route. Inventory now shows Tomato **Physical 40 · Reserved 0 · Available 40**.
 - Refresh the page: the numbers persist.
 
-## 2:50 — Reports (10s)
-
-- **Reports**: #1004 is under completed orders, and distribution by category and organization updated. Export any table to CSV.
-
 **Close:** “Every stock change is one atomic database write that's rejected and re-checked if inventory changed in the meantime. We tested simultaneous approvals fighting over the same stock: one fails cleanly and nothing is over-reserved.”
 
 ## If there's extra time
