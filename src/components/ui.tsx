@@ -196,9 +196,11 @@ export const inputCls =
 /** Native dialog: focus is trapped, Escape and the backdrop close it. */
 export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
   const ref = useDialog(open);
+  const titleId = useId();
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
       className={clsx(
@@ -209,7 +211,7 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
       {open && (
         <div>
           <div className="flex items-center justify-between gap-3 border-b border-sage-100 px-5 py-3.5">
-            <h2 className="font-display text-xl font-semibold text-forest-900">{title}</h2>
+            <h2 id={titleId} className="font-display text-xl font-semibold text-forest-900">{title}</h2>
             <IconButton label="Close" onClick={onClose}>
               <X size={18} />
             </IconButton>

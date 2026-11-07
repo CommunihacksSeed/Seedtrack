@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
-import { CheckCircle2, Circle, ClipboardList, PackageOpen, Printer, Sprout, Truck, UserRound } from "lucide-react";
+import { CheckCircle2, ChevronDown, Circle, ClipboardList, PackageOpen, Printer, Sprout, Truck, UserRound } from "lucide-react";
 import { useData } from "@/components/data-provider";
 import { Button, LinkButton, Card, EmptyState, ErrorState, Loading, PageHeader, SectionTitle, SegmentedTabs, StatusBadge, Toolbar, fmtDate, fmtNum, inputCls } from "@/components/ui";
 import { seedLabel } from "@/lib/domain";
@@ -30,7 +30,7 @@ export default function PackingPage() {
     <>
       <PageHeader
         title="Packing Queue"
-        subtitle="Pack approved orders, then mark them ready. Delivering an order deducts its stock."
+        subtitle="Pack the listed seeds, then mark each order ready for delivery."
         actions={
           view === "seed" &&
           toPack.length > 0 && (
@@ -129,7 +129,7 @@ function SeedView({ orders }: { orders: Order[] }) {
     setBusy(true);
     try {
       await mutate(`/api/orders/${o.id}`, { action: "ready" });
-      toast(`#${o.order_number} is ready for delivery`);
+      toast(`#${o.order_number} ready for delivery.`);
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
@@ -150,79 +150,86 @@ function SeedView({ orders }: { orders: Order[] }) {
     <>
       <Card className="mb-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
         <span>
-          <strong className="text-forest-900">{groups.length}</strong> varieties · <strong className="text-forest-900">{fmtNum(totalPackets)}</strong> packets ·{" "}
-          <strong className="text-forest-900">{orders.length}</strong> orders
+          <strong className="text-forest-900">{groups.length}</strong> {groups.length === 1 ? "variety" : "varieties"} ·{" "}
+          <strong className="text-forest-900">{orders.length}</strong> {orders.length === 1 ? "order" : "orders"}
         </span>
         <span className="flex items-center gap-3">
-          <span className="h-2 w-40 rounded-full bg-sage-100" role="progressbar" aria-valuemin={0} aria-valuemax={totalPackets} aria-valuenow={packedPackets} aria-label="Packets packed">
+          <span className="h-2 w-40 rounded-full bg-sage-100" role="progressbar" aria-valuemin={0} aria-valuemax={totalPackets || 1} aria-valuenow={packedPackets} aria-label="Packets packed">
             <span className="block h-2 rounded-full bg-forest-500 transition-[width]" style={{ width: `${totalPackets ? (packedPackets / totalPackets) * 100 : 0}%` }} />
           </span>
           <span className="tabular-nums text-muted">
-            {packedPackets}/{totalPackets} packed
+            {fmtNum(packedPackets)} of {fmtNum(totalPackets)} packed
           </span>
         </span>
       </Card>
 
       <div className="grid gap-3 lg:grid-cols-2">
         {groups.map((g) => {
-          const done = g.packed === g.total;
+          const remaining = g.total - g.packed;
+          const orderCount = new Set(g.lines.map(({ order }) => order.id)).size;
           return (
-            <Card key={g.seed.id} className={clsx(done && "border-forest-200 bg-forest-50/30")}>
-              <div className="flex items-start justify-between gap-3 border-b border-sage-100 px-4 py-3">
-                <div>
-                  <p className="font-semibold text-forest-900">{seedLabel(g.seed)}</p>
-                  <p className="text-xs text-muted">
-                    {g.seed.storage_location ? `${g.seed.storage_location} · ` : ""}
-                    {g.lines.length} order{g.lines.length === 1 ? "" : "s"}
-                  </p>
+            <Card key={g.seed.id}>
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-4 py-3">
+                <div className="min-w-0 flex-1 basis-36">
+                  <p className="wrap-anywhere font-semibold text-forest-900">{seedLabel(g.seed)}</p>
+                  {g.seed.storage_location && <p className="text-xs text-muted">{g.seed.storage_location}</p>}
                 </div>
-                <div className="text-right">
-                  <p className="text-3xl font-semibold leading-none tabular-nums text-forest-900">{fmtNum(g.total)}</p>
-                  <p className="mt-1 text-xs text-muted">{g.seed.unit} to pack</p>
-                </div>
+                <p className="text-right text-xs text-muted">
+                  <strong className="block text-2xl leading-tight font-semibold text-forest-900 tabular-nums">{fmtNum(remaining)}</strong>
+                  {g.seed.unit} left
+                </p>
               </div>
-              <ul className="divide-y divide-sage-100">
-                {g.lines.map(({ order, item }) => {
-                  const packed = item.packed_quantity === item.approved_quantity;
-                  return (
-                    <li key={item.id}>
-                      <button
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-sage-50 disabled:cursor-default disabled:hover:bg-transparent"
-                        disabled={busy}
-                        onClick={() => pack([{ order, item, qty: packed ? 0 : item.approved_quantity! }])}
-                        aria-pressed={packed}
-                      >
-                        {packed ? <CheckCircle2 size={20} className="shrink-0 text-forest-600" /> : <Circle size={20} className="shrink-0 text-stone-300" />}
-                        <span className={clsx("flex-1", packed && "text-muted line-through decoration-forest-300")}>
-                          #{order.order_number} · {order.organization_name}
-                          {order.assigned_steward && <span className="text-xs text-muted"> ({order.assigned_steward})</span>}
-                        </span>
-                        <span className="font-semibold tabular-nums">× {item.approved_quantity}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="flex items-center justify-between gap-3 border-t border-sage-100 px-4 py-3">
-                <span className="text-xs tabular-nums text-muted">
-                  {g.packed} / {g.total} packed
-                </span>
-                {(
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-3">
+                <p className="text-xs text-muted tabular-nums">{fmtNum(g.packed)} of {fmtNum(g.total)} packed</p>
+                {remaining === 0 ? (
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-forest-700"><CheckCircle2 size={16} aria-hidden /> All packed</span>
+                ) : (
                   <Button
                     size="sm"
-                    variant={done ? "secondary" : "primary"}
-                    disabled={busy || done}
+                    variant="primary"
+                    disabled={busy}
                     onClick={() =>
                       pack(
-                        g.lines.filter((l) => l.item.packed_quantity !== l.item.approved_quantity).map((l) => ({ ...l, qty: l.item.approved_quantity! })),
-                        `All ${seedLabel(g.seed)} packed`,
+                        g.lines.filter(({ item }) => item.packed_quantity !== item.approved_quantity).map((line) => ({ ...line, qty: line.item.approved_quantity! })),
+                        `${seedLabel(g.seed)}: ${fmtNum(g.total)} packed.`,
                       )
                     }
                   >
-                    <CheckCircle2 /> {done ? "All packed" : `Pack all ${g.total}`}
+                    {g.packed === 0 ? "Pack all" : "Pack remaining"}
                   </Button>
                 )}
               </div>
+              <details className="group border-t border-sage-100">
+                <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-4 text-xs font-medium text-forest-700 hover:bg-sage-50 [&::-webkit-details-marker]:hidden">
+                  Order breakdown · {orderCount} {orderCount === 1 ? "order" : "orders"}
+                  <ChevronDown size={15} className="group-open:rotate-180" aria-hidden />
+                </summary>
+                <ul className="divide-y divide-sage-100">
+                  {g.lines.map(({ order, item }) => {
+                    const packed = item.packed_quantity === item.approved_quantity;
+                    return (
+                      <li key={item.id}>
+                        <button
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-sage-50 disabled:cursor-default disabled:hover:bg-transparent"
+                          disabled={busy}
+                          onClick={() => pack(
+                            [{ order, item, qty: packed ? 0 : item.approved_quantity! }],
+                            packed ? `#${order.order_number}: item marked unpacked.` : `#${order.order_number}: item packed.`,
+                          )}
+                          aria-pressed={packed}
+                        >
+                          {packed ? <CheckCircle2 size={20} className="shrink-0 text-forest-600" /> : <Circle size={20} className="shrink-0 text-stone-300" />}
+                          <span className={clsx("flex-1", packed && "text-muted line-through decoration-forest-300")}>
+                            #{order.order_number} · {order.organization_name}
+                            {order.assigned_steward && <span className="text-xs text-muted"> ({order.assigned_steward})</span>}
+                          </span>
+                          <span className="font-semibold tabular-nums">× {item.approved_quantity}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
             </Card>
           );
         })}
@@ -316,7 +323,10 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
                 <button
                   className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-sage-50 disabled:cursor-default disabled:hover:bg-transparent"
                   disabled={!packing || busy}
-                  onClick={() => act({ action: "pack", packs: [{ item_id: i.id, packed_quantity: packed ? 0 : i.approved_quantity }] })}
+                  onClick={() => act(
+                    { action: "pack", packs: [{ item_id: i.id, packed_quantity: packed ? 0 : i.approved_quantity }] },
+                    packed ? `#${order.order_number}: item marked unpacked.` : `#${order.order_number}: item packed.`,
+                  )}
                   aria-pressed={packed}
                 >
                   {packed ? <CheckCircle2 size={20} className="shrink-0 text-forest-600" /> : <Circle size={20} className="shrink-0 text-stone-300" />}
@@ -343,12 +353,12 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
             </Button>
           )}
           {packing && (
-            <Button size="sm" variant="primary" onClick={() => act({ action: "ready" }, `#${order.order_number} is ready`)} disabled={busy || !allPacked} title={allPacked ? undefined : "Pack every item first"}>
+            <Button size="sm" variant="primary" onClick={() => act({ action: "ready" }, `#${order.order_number} ready for delivery.`)} disabled={busy || !allPacked} title={allPacked ? undefined : "Pack every item first"}>
               <CheckCircle2 /> Mark ready
             </Button>
           )}
           {order.status === "Ready" && (
-            <Button size="sm" variant="primary" onClick={() => act({ action: "deliver" }, `#${order.order_number} delivered — stock deducted`)} disabled={busy}>
+            <Button size="sm" variant="primary" onClick={() => act({ action: "deliver" }, `Order #${order.order_number} delivered.`)} disabled={busy}>
               <Truck /> Mark delivered
             </Button>
           )}

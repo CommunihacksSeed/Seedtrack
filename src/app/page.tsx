@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import clsx from "clsx";
 import { AlertTriangle, ArrowRight, CheckCircle2, CircleDashed, ClipboardList, Package, Plus, Sprout, Truck, Upload } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useData } from "@/components/data-provider";
-import { Card, CardHeader, EmptyState, ErrorState, LinkButton, Loading, PageHeader, Stat, fmtNum, timeAgo, useReducedMotion } from "@/components/ui";
+import { Card, CardHeader, EmptyState, ErrorState, LinkButton, Loading, PageHeader, Stat, buttonCls, fmtNum, timeAgo, useReducedMotion } from "@/components/ui";
 import { inventorySummary, seedLabel } from "@/lib/domain";
 import { distributionRows, lowStockSeeds, requestsOverTime, seedMap, sumBy } from "@/lib/views";
 import { MOVEMENT_LABELS } from "@/lib/types";
@@ -15,11 +14,10 @@ type Task = {
   key: string;
   count: number;
   title: string;
-  detail: string;
+  detail?: string;
   href: string;
   cta: string;
   icon: React.ReactNode;
-  attention?: boolean;
 };
 
 export default function DashboardPage() {
@@ -72,17 +70,15 @@ export default function DashboardPage() {
         key: "count",
         count: inv.uncounted,
         title: inv.uncounted === 1 ? "1 seed needs a stock count" : `${fmtNum(inv.uncounted)} seeds need a stock count`,
-        detail: "Uncounted seeds can’t be allocated to requests. Unknown stock is never treated as zero.",
+        detail: "Count stock before allocating these seeds.",
         href: "/inventory?view=uncounted",
         cta: "Start counting",
         icon: <CircleDashed />,
-        attention: true,
       },
       {
         key: "review",
         count: toReview,
         title: toReview === 1 ? "1 request to review" : `${toReview} requests to review`,
-        detail: "Match seeds to inventory and approve to reserve stock.",
         href: "/requests?view=open",
         cta: "Review requests",
         icon: <ClipboardList />,
@@ -91,7 +87,6 @@ export default function DashboardPage() {
         key: "pack",
         count: toPack,
         title: toPack === 1 ? "1 order to pack" : `${toPack} orders to pack`,
-        detail: "Approved orders with reserved stock, waiting to be packed.",
         href: "/packing",
         cta: "Open packing queue",
         icon: <Package />,
@@ -100,7 +95,6 @@ export default function DashboardPage() {
         key: "deliver",
         count: ready,
         title: ready === 1 ? "1 order ready to deliver" : `${ready} orders ready to deliver`,
-        detail: "Packed orders. Delivering deducts their stock.",
         href: "/deliveries",
         cta: "Plan deliveries",
         icon: <Truck />,
@@ -116,7 +110,6 @@ export default function DashboardPage() {
         href: "/inventory?view=low",
         cta: "View low stock",
         icon: <AlertTriangle />,
-        attention: true,
       },
     ].filter((t) => t.count > 0);
 
@@ -141,7 +134,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        subtitle="What needs doing today, then how inventory and requests stand."
+        subtitle="Your seed requests, stock, and deliveries."
         actions={
           !view.firstUse && (
             <LinkButton href="/requests/new">
@@ -184,26 +177,17 @@ export default function DashboardPage() {
             ) : (
               <ul className="divide-y divide-sage-100 overflow-hidden rounded-lg border border-sage-200 bg-white">
                 {view.tasks.map((t, i) => (
-                  <li key={t.key} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
-                    <span
-                      className={clsx(
-                        "hidden size-9 shrink-0 place-items-center rounded-md sm:grid [&_svg]:size-[18px]",
-                        t.attention ? "bg-amber-50 text-amber-700" : "bg-forest-50 text-forest-600",
-                      )}
-                      aria-hidden
-                    >
-                      {t.icon}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-forest-900">
-                        {t.title}
-                        {t.attention && <span className="ml-2 align-middle text-xs font-medium text-amber-800">Needs attention</span>}
-                      </p>
-                      <p className="text-sm text-muted sm:truncate">{t.detail}</p>
-                    </div>
-                    <LinkButton href={t.href} variant={i === 0 ? "primary" : "secondary"} className="self-start sm:self-auto">
-                      {t.cta} <ArrowRight />
-                    </LinkButton>
+                  <li key={t.key}>
+                    <Link href={t.href} className="flex min-h-14 items-center gap-2 px-3 py-2 hover:bg-sage-50 focus-visible:outline-offset-[-2px] sm:gap-3 sm:px-4">
+                      <span className="hidden shrink-0 text-forest-600 sm:block [&_svg]:size-4" aria-hidden>{t.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-forest-900">{t.title}</p>
+                        {t.detail && <p className="text-xs text-muted">{t.detail}</p>}
+                      </div>
+                      <span className={i === 0 ? buttonCls("primary", "sm", "shrink-0") : "flex shrink-0 items-center gap-1 text-xs font-medium text-forest-700"}>
+                        {t.cta} <ArrowRight size={14} aria-hidden />
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
