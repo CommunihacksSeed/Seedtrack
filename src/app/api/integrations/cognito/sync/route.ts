@@ -1,9 +1,9 @@
 import { cognitoAdapter, NotConfiguredError } from "@/lib/integrations/cognito";
-import { staffWrite } from "@/lib/server/http";
+import { handleWrite } from "@/lib/server/http";
 
 /** Manual "Sync now". Returns a clear message until the live adapter exists. */
-export async function POST(req: Request) {
-  return staffWrite(req, async () => {
+export async function POST() {
+  return handleWrite(async () => {
     try {
       const entries = await cognitoAdapter.fetchEntries(null);
       return { ok: true, fetched: entries.length };

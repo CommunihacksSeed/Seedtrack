@@ -4,9 +4,9 @@
 
 ```
 Browser (React client pages)
-   │  fetch JSON (+ x-seedflow-key header for staff)
+   │  fetch JSON
    ▼
-Next.js Route Handlers  /api/*          ← zod validation, staff check, error mapping
+Next.js Route Handlers  /api/*          ← zod validation, error mapping
    │
    ▼
 SeedFlowStore interface (src/lib/store)
@@ -83,9 +83,9 @@ The local demo store gets the same effect inside one Node process: it chains eve
 
 - Supabase service role key and Cognito secrets live only in server environment variables.
 - RLS is enabled with no policies for `anon`/`authenticated`. `EXECUTE` on the `sf_*` functions is revoked from public and granted to `service_role` only.
-- Staff writes, and any read of requester email or address, need `SEEDFLOW_ADMIN_KEY` (checked server-side with a timing-safe compare). Without a key, production builds are read-only.
-- Packing slips and the non-staff API never include contact details. CSV exports guard against spreadsheet formula injection.
-- **Next step:** replace the shared key with Supabase Auth and per-user roles (staff vs. Seed Steward).
+- **No login:** the prototype has no access control, so anyone who can reach the app can read and change data. Add Supabase Auth before real use.
+- Packing slips never include contact details. CSV exports guard against spreadsheet formula injection.
+- **Next step:** add Supabase Auth with per-user roles (staff vs. Seed Steward).
 
 ## Where things live
 

@@ -59,4 +59,4 @@
 - **Where does inventory come from?** Staff enter counts or import a CSV. Unknown counts stay unknown until someone counts them.
 - **What if the request has no quantities?** It imports anyway, and staff choose approved quantities during review.
 - **Duplicate Cognito submissions?** The Cognito Entry ID is unique, so re-importing the same export is safe.
-- **Real data?** None is used. The demo data is fictional, and contact details are hidden from anyone without the staff key.
+- **Real data?** None is used. The demo data is fictional. Before real use we'd add logins (Supabase Auth).

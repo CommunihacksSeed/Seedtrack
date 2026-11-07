@@ -1,12 +1,12 @@
 import { getStore } from "@/lib/store";
-import { parseBody, staffWrite } from "@/lib/server/http";
+import { parseBody, handleWrite } from "@/lib/server/http";
 import { orderActionSchema } from "@/lib/schemas";
 import { notifyLater, withLowStockCheck } from "@/lib/server/notify";
 
 /** All order workflow transitions go through one validated action endpoint. */
 export async function POST(req: Request, ctx: RouteContext<"/api/orders/[id]">) {
   const { id } = await ctx.params;
-  return staffWrite(req, async () => {
+  return handleWrite(async () => {
     const a = await parseBody(req, orderActionSchema);
     const s = getStore();
     // Seeds touched by this order (for low-stock alerts after reserving / delivering).

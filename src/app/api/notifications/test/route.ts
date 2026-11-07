@@ -1,11 +1,11 @@
 import { getStore } from "@/lib/store";
 import { DomainError } from "@/lib/domain";
-import { staffWrite } from "@/lib/server/http";
+import { handleWrite } from "@/lib/server/http";
 import { deliverNotification } from "@/lib/server/notify";
 
 /** Send a sample "new request" notification to the staff email, even if notifications are off. */
-export async function POST(req: Request) {
-  return staffWrite(req, async () => {
+export async function POST() {
+  return handleWrite(async () => {
     const store = getStore();
     const db = await store.snapshot();
     const latest = [...db.orders].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];

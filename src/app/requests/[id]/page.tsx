@@ -34,7 +34,6 @@ export default function RequestDetailPage() {
 function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
   const { state, mutate, toast } = useData();
   const db = state!.snapshot;
-  const staff = state!.staff;
   const seeds = db.seeds;
   const seedById = useMemo(() => new Map(seeds.map((s) => [s.id, s])), [seeds]);
   const reviewable = REVIEWABLE_STATUSES.includes(order.status);
@@ -121,7 +120,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
           </span>
         }
         actions={
-          staff && (
+          (
             <>
               {order.status === "Received" && (
                 <Button onClick={() => act({ action: "start_review" }, "Review started")} disabled={busy}>
@@ -203,7 +202,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
                                 className={`${inputCls} min-w-48`}
                                 value={r.seedId}
                                 onChange={(e) => update(idx, { seedId: e.target.value })}
-                                disabled={!staff || r.unavailable}
+                                disabled={r.unavailable}
                                 aria-label={`Inventory item for ${r.item.requested_seed_name}`}
                               >
                                 <option value="">— Choose inventory item —</option>
@@ -237,7 +236,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
                                   inputMode="numeric"
                                   value={r.unavailable ? "" : r.qty}
                                   onChange={(e) => update(idx, { qty: e.target.value.trim() })}
-                                  disabled={!staff || r.unavailable}
+                                  disabled={r.unavailable}
                                   aria-label={`Approved packets for ${r.item.requested_seed_name}`}
                                 />
                                 {r.suggested && !r.unavailable && (
@@ -251,7 +250,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
                                     className="h-4 w-4 accent-forest-600"
                                     checked={r.unavailable}
                                     onChange={(e) => update(idx, { unavailable: e.target.checked })}
-                                    disabled={!staff}
+                                   
                                   />
                                   Unavailable
                                 </label>
@@ -274,7 +273,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
                 </table>
               </div>
             )}
-            {reviewable && staff && (
+            {reviewable && (
               <div className="space-y-4 border-t border-sage-100 p-4">
                 {(requestedBundles.length > 0 || otherBundles.length > 0) && (
                   <div className="flex flex-wrap items-center gap-2 rounded-xl bg-forest-50/60 p-3 text-sm">
@@ -362,7 +361,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
             <CardHeader title="Request details" />
             <dl className="space-y-3 p-5 text-sm">
               <Detail label="Requester">{order.requester_name}</Detail>
-              {staff ? (
+              {(
                 <>
                   {order.requester_email && (
                     <Detail label="Email">
@@ -379,10 +378,6 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
                     </Detail>
                   )}
                 </>
-              ) : (
-                <Detail label="Contact">
-                  <em className="text-muted">Hidden — staff only</em>
-                </Detail>
               )}
               <Detail label="School use">{order.school_use === null ? "—" : order.school_use ? "Yes" : "No"}</Detail>
               <Detail label="Students / youth">
@@ -392,7 +387,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
               </Detail>
               <Detail label="Bundles">{order.requested_bundles.length ? order.requested_bundles.join(", ") : "—"}</Detail>
               <Detail label="Delivery">
-                {staff && order.status !== "Delivered" && order.status !== "Cancelled" ? (
+                {order.status !== "Delivered" && order.status !== "Cancelled" ? (
                   <select
                     className={`${inputCls} py-1 text-sm`}
                     value={order.delivery_method ?? ""}

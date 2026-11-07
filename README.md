@@ -51,14 +51,14 @@ The local store is for development and demos only. It's safe only with a single 
    `supabase/migrations/0001_schema.sql`, `0002_functions.sql`, `0003_demo_reset.sql`, `0004_settings_bundles_delivery.sql`
    (or use `supabase db push` with the Supabase CLI).
 3. Optional: load the demo data by running `supabase/seed.sql`. To regenerate it, run `npm run db:seed-sql`.
-4. Copy `.env.example` to `.env.local` and set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `SEEDFLOW_ADMIN_KEY`.
+4. Copy `.env.example` to `.env.local` and set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 5. `npm run dev`. The banner disappears and Settings shows “Supabase PostgreSQL”.
 
 All inventory changes go through PostgreSQL functions (`sf_approve_order`, `sf_deliver_order`, `sf_cancel_order`, `sf_set_stock`, …). Each one runs as a single transaction that locks the affected rows. Row Level Security is on with no anonymous or authenticated access. Only the server's service role can read or write.
 
 ## Deploying (e.g. Vercel)
 
-Set the environment variables from `.env.example`. **Always set `SEEDFLOW_ADMIN_KEY`.** Without it, a production deployment is read-only and hides requester contact details. Use Supabase for any shared deployment, because the local demo store doesn't persist on serverless hosts.
+Set the environment variables from `.env.example`. Use Supabase for any shared deployment, because the local demo store doesn't persist on serverless hosts. **There is no login:** anyone with the link can view and change data, so keep the URL private or add authentication (e.g. Supabase Auth) before using real requester data.
 
 ## Commands
 
@@ -91,7 +91,7 @@ The SQL was tested on plain PostgreSQL 16. The Supabase adapter (`src/lib/store/
 
 - **Route distances are estimates:** straight-line distance × 1.3. Use the Google Maps link for real driving directions. Address lookup uses OpenStreetMap's free service, limited to about one address per second.
 - **Email sending** is built for Resend's API but hasn't been tested with a live account. Without a key, notifications are only logged.
-- **Staff access is a shared key**, not individual logins. Replace it with Supabase Auth (per-user roles) before handling real requester data.
+- **No login or access control.** Anyone who can open the app can change data and see requester contact details. Add Supabase Auth (per-user roles) before handling real data.
 - **No live Cognito sync.** The adapter refuses to guess endpoints. Import exports instead, and finish `src/lib/integrations/cognito.ts` once the API is confirmed.
 - **Partial fulfilment isn't supported.** Orders are delivered in full; to send less, change approved quantities during review. Marked as future work.
 - Seed name matching only auto-links exact, unambiguous names. Everything else waits for staff, by design.

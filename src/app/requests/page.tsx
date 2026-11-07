@@ -59,10 +59,10 @@ export default function RequestsPage() {
             <Button onClick={() => downloadExport("orders").catch((e) => toast(e.message, "error"))}>
               <Download size={16} /> Export CSV
             </Button>
-            <LinkButton href="/requests/import" disabled={!state.staff}>
+            <LinkButton href="/requests/import">
                 <Upload size={16} /> Import CSV / JSON
               </LinkButton>
-            <LinkButton href="/requests/new" variant="primary" disabled={!state.staff}>
+            <LinkButton href="/requests/new" variant="primary">
                 <Plus size={16} /> New request
               </LinkButton>
           </>

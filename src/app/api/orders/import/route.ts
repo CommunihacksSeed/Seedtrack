@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getStore } from "@/lib/store";
 import { DomainError } from "@/lib/domain";
-import { parseBody, staffWrite } from "@/lib/server/http";
+import { parseBody, handleWrite } from "@/lib/server/http";
 import { orderInputSchema } from "@/lib/schemas";
 import { notifyLater } from "@/lib/server/notify";
 
@@ -13,7 +13,7 @@ const bodySchema = z.object({ orders: z.array(z.unknown()).max(1000) });
  * IDs are reported and not re-imported.
  */
 export async function POST(req: Request) {
-  return staffWrite(req, async () => {
+  return handleWrite(async () => {
     const { orders } = await parseBody(req, bodySchema);
     const store = getStore();
     const results: { row: number; status: "imported" | "duplicate" | "error"; message: string; order_number?: number }[] = [];

@@ -56,7 +56,6 @@ export default function DeliveriesPage() {
   }, [state, includePacking]);
 
   if (!state || !view) return <Loading />;
-  const staff = state.staff;
 
   async function act(o: Order, body: object, msg?: string) {
     try {
@@ -105,7 +104,7 @@ export default function DeliveriesPage() {
             <Button onClick={() => window.print()} disabled={!view.trips.length}>
               <Printer size={16} /> Print route
             </Button>
-            <Button onClick={() => setEditDepot(true)} disabled={!staff}>
+            <Button onClick={() => setEditDepot(true)}>
               <Settings2 size={16} /> Route settings
             </Button>
           </>
@@ -152,7 +151,7 @@ export default function DeliveriesPage() {
                       </Link>
                       <p className="text-xs text-muted">{view.packets(o)} packets</p>
                     </td>
-                    <td className="max-w-56 px-4 py-2.5 text-xs text-muted">{staff ? (o.mailing_address ?? "No address") : "Staff only"}</td>
+                    <td className="max-w-56 px-4 py-2.5 text-xs text-muted">{o.mailing_address ?? "No address"}</td>
                     <td className="px-4 py-2.5">
                       <StatusBadge status={o.status} />
                     </td>
@@ -161,7 +160,7 @@ export default function DeliveriesPage() {
                         {DELIVERY_METHODS.map((m) => (
                           <button
                             key={m}
-                            disabled={!staff}
+                           
                             onClick={() => act(o, { action: "set_delivery", delivery_method: o.delivery_method === m ? null : m })}
                             aria-pressed={o.delivery_method === m}
                             className={clsx(
@@ -178,17 +177,17 @@ export default function DeliveriesPage() {
                       {o.delivery_method !== "drop-off" ? (
                         <span className="text-xs text-muted">Not needed</span>
                       ) : o.delivery_lat !== null ? (
-                        <button className="flex items-center gap-1 text-xs text-forest-700 hover:underline" onClick={() => setManual(o)} disabled={!staff}>
+                        <button className="flex items-center gap-1 text-xs text-forest-700 hover:underline" onClick={() => setManual(o)}>
                           <CheckCircle2 size={14} /> Located
                         </button>
                       ) : locating === o.id ? (
                         <span className="text-xs text-muted">Looking up…</span>
                       ) : (
                         <span className="flex gap-1">
-                          <Button size="sm" onClick={() => locate([o])} disabled={!staff || busy || !o.mailing_address}>
+                          <Button size="sm" onClick={() => locate([o])} disabled={busy || !o.mailing_address}>
                             <MapPin size={13} /> Find
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setManual(o)} disabled={!staff}>
+                          <Button size="sm" variant="ghost" onClick={() => setManual(o)}>
                             Set
                           </Button>
                         </span>
@@ -200,7 +199,7 @@ export default function DeliveriesPage() {
             </table>
           </div>
         )}
-        {view.unlocated.length > 0 && staff && (
+        {view.unlocated.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sage-100 px-5 py-3 text-sm">
             <span className="text-amber-800">
               {view.unlocated.length} drop-off order{view.unlocated.length === 1 ? " needs" : "s need"} a map location before it can be routed.
@@ -260,9 +259,9 @@ export default function DeliveriesPage() {
                         n={String(i + 1)}
                         km={trip.legs[i].km}
                         title={`#${s.data.order_number} · ${s.data.organization_name}`}
-                        sub={staff ? (s.data.mailing_address ?? "") : ""}
+                        sub={s.data.mailing_address ?? ""}
                         action={
-                          s.data.status === "Ready" && staff ? (
+                          s.data.status === "Ready" ? (
                             <Button size="sm" onClick={() => act(s.data, { action: "deliver" }, `#${s.data.order_number} delivered`)}>
                               <Truck size={13} /> Delivered
                             </Button>
@@ -290,7 +289,6 @@ export default function DeliveriesPage() {
           title="By mail"
           icon={<Mail size={16} />}
           orders={view.mail}
-          staff={staff}
           packets={view.packets}
           empty="No orders going by mail"
           onDone={(o) => act(o, { action: "deliver" }, `#${o.order_number} marked as sent`)}
@@ -300,7 +298,6 @@ export default function DeliveriesPage() {
           title="Pickup"
           icon={<Store size={16} />}
           orders={view.pickup}
-          staff={staff}
           packets={view.packets}
           empty="No pickups"
           onDone={(o) => act(o, { action: "deliver" }, `#${o.order_number} picked up`)}
@@ -361,7 +358,6 @@ function SimpleList({
   title,
   icon,
   orders,
-  staff,
   packets,
   empty,
   onDone,
@@ -370,7 +366,6 @@ function SimpleList({
   title: string;
   icon: React.ReactNode;
   orders: Order[];
-  staff: boolean;
   packets: (o: Order) => number;
   empty: string;
   onDone: (o: Order) => void;
@@ -390,10 +385,10 @@ function SimpleList({
                   #{o.order_number} · {o.organization_name}
                 </p>
                 <p className="truncate text-xs text-muted">
-                  {packets(o)} packets{staff && o.mailing_address ? ` · ${o.mailing_address}` : ""}
+                  {packets(o)} packets{o.mailing_address ? ` · ${o.mailing_address}` : ""}
                 </p>
               </div>
-              {o.status === "Ready" && staff ? (
+              {o.status === "Ready" ? (
                 <Button size="sm" onClick={() => onDone(o)}>
                   <CheckCircle2 size={13} /> {doneLabel}
                 </Button>

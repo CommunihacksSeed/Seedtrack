@@ -12,7 +12,6 @@ const STATUS_LABEL = { sent: "Emailed", logged: "Logged only", skipped: "Skipped
 export function NotificationsTab() {
   const { state, mutate, toast } = useData();
   const s = state!.snapshot.settings;
-  const staff = state!.staff;
   const [email, setEmail] = useState(s.notifications.staff_email ?? "");
   const [busy, setBusy] = useState(false);
 
@@ -52,7 +51,7 @@ export function NotificationsTab() {
             label="Turn on notifications"
             description="Off by default. Staff choose which messages go out."
             checked={s.notifications.enabled}
-            disabled={!staff || busy}
+            disabled={busy}
             onChange={(v) => save({ enabled: v }, v ? "Notifications turned on" : "Notifications turned off")}
           />
 
@@ -65,7 +64,7 @@ export function NotificationsTab() {
                   label={NOTIFICATION_EVENT_INFO[e].label}
                   description={NOTIFICATION_EVENT_INFO[e].to === "staff" ? "To staff" : "To the requester (if they gave an email)"}
                   checked={s.notifications.events[e]}
-                  disabled={!staff || busy}
+                  disabled={busy}
                   onChange={(v) => save({ events: { [e]: v } })}
                 />
               ))}
@@ -80,9 +79,9 @@ export function NotificationsTab() {
             }}
           >
             <Field label="Staff email" hint="Gets new-request and low-stock alerts" className="flex-1">
-              <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!staff} placeholder="seeds@example.org" />
+              <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seeds@example.org" />
             </Field>
-            <Button type="submit" disabled={!staff || busy} className="mb-[18px]">
+            <Button type="submit" disabled={busy} className="mb-[18px]">
               Save
             </Button>
           </form>
@@ -99,7 +98,7 @@ export function NotificationsTab() {
               </>
             )}
           </div>
-          <Button onClick={test} disabled={!staff || busy}>
+          <Button onClick={test} disabled={busy}>
             <Send size={15} /> Send a test notification
           </Button>
         </div>

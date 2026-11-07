@@ -6,8 +6,6 @@ import type { DataSnapshot } from "@/lib/types";
 export interface AppState {
   mode: "local-demo" | "supabase";
   demo: boolean;
-  staff: boolean;
-  authMode: "key" | "open-dev" | "read-only";
   cognito: { apiConfigured: boolean; webhookConfigured: boolean; message: string };
   emailConfigured: boolean;
   snapshot: DataSnapshot;
@@ -20,34 +18,13 @@ interface Ctx {
   error: string | null;
   loading: boolean;
   refresh: () => Promise<void>;
-  /** POST/PATCH/DELETE JSON with the staff key; refreshes state on success. Throws Error(message) on failure. */
+  /** POST/PATCH/DELETE JSON; refreshes state on success. Throws Error(message) on failure. */
   mutate: <T = unknown>(url: string, body?: unknown, method?: string) => Promise<T>;
   toast: (text: string, kind?: Toast["kind"]) => void;
 }
 
 const DataContext = createContext<Ctx | null>(null);
-const KEY_STORAGE = "seedflow-staff-key";
-
-export function getStaffKey() {
-  try {
-    return localStorage.getItem(KEY_STORAGE) ?? "";
-  } catch {
-    return "";
-  }
-}
-export function setStaffKey(v: string) {
-  try {
-    if (v) localStorage.setItem(KEY_STORAGE, v);
-    else localStorage.removeItem(KEY_STORAGE);
-  } catch {
-    /* storage unavailable */
-  }
-}
-
-function headers(): HeadersInit {
-  const key = getStaffKey();
-  return { "content-type": "application/json", ...(key ? { "x-seedflow-key": key } : {}) };
-}
+const HEADERS: HeadersInit = { "content-type": "application/json" };
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState | null>(null);
@@ -63,7 +40,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/state", { headers: headers(), cache: "no-store" });
+      const res = await fetch("/api/state", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not load data");
       setState(data);
@@ -79,7 +56,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async <T,>(url: string, body?: unknown, method = "POST"): Promise<T> => {
       const res = await fetch(url, {
         method,
-        headers: headers(),
+        headers: HEADERS,
         body: body === undefined ? undefined : JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
