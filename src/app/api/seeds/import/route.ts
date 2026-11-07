@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getStore } from "@/lib/store";
 import { createSeed, DomainError, matchSeed, setStockCount, updateSeedDetails } from "@/lib/domain";
-import { parseBody, staffWrite } from "@/lib/server/http";
+import { parseBody, handleWrite } from "@/lib/server/http";
 import { rowToSeedInput } from "@/lib/import-mapping";
 
 type ImportResult = { row: number; status: "created" | "updated" | "skipped" | "error"; message: string };
@@ -14,7 +14,7 @@ const bodySchema = z.object({
 
 /** Import inventory rows. Each row is processed independently and reported. */
 export async function POST(req: Request) {
-  return staffWrite(req, async () => {
+  return handleWrite(async () => {
     const { rows, existing } = await parseBody(req, bodySchema);
     const results = await getStore().transact((draft) => {
       const report: ImportResult[] = [];

@@ -1,7 +1,6 @@
 import "server-only";
 import { ZodError, type ZodType } from "zod";
 import { DomainError } from "../domain";
-import { isStaff, authMode } from "./auth";
 
 export function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
@@ -18,15 +17,8 @@ export function errorResponse(e: unknown) {
   return json({ error: "Something went wrong on the server.", code: "server_error" }, 500);
 }
 
-/** Wrap a write handler: staff check, then run, mapping errors to JSON. */
-export async function staffWrite(req: Request, fn: () => Promise<unknown>) {
-  if (!isStaff(req)) {
-    const msg =
-      authMode() === "read-only"
-        ? "This deployment is read-only: set SEEDFLOW_ADMIN_KEY on the server to enable staff changes."
-        : "Staff key required. Enter it on the Settings page.";
-    return json({ error: msg, code: "unauthorized" }, 401);
-  }
+/** Run a write handler, mapping errors to JSON responses. */
+export async function handleWrite(fn: () => Promise<unknown>) {
   try {
     return json((await fn()) ?? { ok: true });
   } catch (e) {

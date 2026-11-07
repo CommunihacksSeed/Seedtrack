@@ -107,7 +107,6 @@ function SeedView({ orders }: { orders: Order[] }) {
   const { state, mutate, toast } = useData();
   const [busy, setBusy] = useState(false);
   const db = state!.snapshot;
-  const staff = state!.staff;
   const groups = seedPickList(db, orders);
 
   async function pack(packs: { order: Order; item: OrderItem; qty: number }[], msg?: string) {
@@ -188,7 +187,7 @@ function SeedView({ orders }: { orders: Order[] }) {
                     <li key={item.id}>
                       <button
                         className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm hover:bg-sage-50 disabled:cursor-default disabled:hover:bg-transparent"
-                        disabled={!staff || busy}
+                        disabled={busy}
                         onClick={() => pack([{ order, item, qty: packed ? 0 : item.approved_quantity! }])}
                         aria-pressed={packed}
                       >
@@ -207,7 +206,7 @@ function SeedView({ orders }: { orders: Order[] }) {
                 <span className="text-xs tabular-nums text-muted">
                   {g.packed} / {g.total} packed
                 </span>
-                {staff && (
+                {(
                   <Button
                     size="sm"
                     variant={done ? "secondary" : "primary"}
@@ -228,7 +227,7 @@ function SeedView({ orders }: { orders: Order[] }) {
         })}
       </div>
 
-      {staff && fullyPacked.length > 0 && (
+      {fullyPacked.length > 0 && (
         <Card className="mt-4 border-forest-200">
           <div className="border-b border-sage-100 px-5 py-3">
             <p className="font-semibold text-forest-900">Orders with everything packed</p>
@@ -258,8 +257,7 @@ function SeedView({ orders }: { orders: Order[] }) {
 }
 
 function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; seeds: Map<string, Seed> }) {
-  const { state, mutate, toast } = useData();
-  const staff = state!.staff;
+  const { mutate, toast } = useData();
   const [busy, setBusy] = useState(false);
   const [steward, setSteward] = useState(order.assigned_steward ?? "");
   const packing = order.status === "Approved" || order.status === "Preparing";
@@ -299,7 +297,7 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
             value={steward}
             onChange={(e) => setSteward(e.target.value)}
             onBlur={() => steward !== (order.assigned_steward ?? "") && act({ action: "assign", steward: steward || null }, "Steward assigned")}
-            disabled={!staff}
+           
             aria-label="Assigned Seed Steward"
           />
         </div>
@@ -316,7 +314,7 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
               <li key={i.id}>
                 <button
                   className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-sage-50 disabled:cursor-default disabled:hover:bg-transparent"
-                  disabled={!packing || !staff || busy}
+                  disabled={!packing || busy}
                   onClick={() => act({ action: "pack", packs: [{ item_id: i.id, packed_quantity: packed ? 0 : i.approved_quantity }] })}
                   aria-pressed={packed}
                 >
@@ -333,7 +331,7 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
         </p>
       </div>
 
-      {staff && (
+      {(
         <div className="flex flex-wrap justify-end gap-2 border-t border-sage-100 px-5 py-3">
           <LinkButton href={`/packing/${order.id}/print`} size="sm">
               <Printer size={14} /> Packing list

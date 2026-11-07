@@ -1,7 +1,7 @@
 import { getStore } from "@/lib/store";
-import { parseBody, staffWrite } from "@/lib/server/http";
+import { parseBody, handleWrite } from "@/lib/server/http";
 import { seedInputSchema } from "@/lib/schemas";
 
 export async function POST(req: Request) {
-  return staffWrite(req, async () => getStore().createSeed(await parseBody(req, seedInputSchema)));
+  return handleWrite(async () => getStore().createSeed(await parseBody(req, seedInputSchema)));
 }

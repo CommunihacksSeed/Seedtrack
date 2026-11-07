@@ -4,9 +4,9 @@
 
 ```
 Browser (React client pages)
-   │  fetch JSON (+ x-seedflow-key header for staff)
+   │  fetch JSON
    ▼
-Next.js Route Handlers  /api/*          ← zod validation, staff check, error mapping
+Next.js Route Handlers  /api/*          ← zod validation, error mapping
    │
    ▼
 SeedFlowStore interface (src/lib/store)
@@ -79,9 +79,9 @@ CHECK constraints are a second safety net: even a buggy code path can't commit `
 ## Security model (prototype)
 
 - D1 is reachable only through the Worker's `DB` binding. Cognito secrets live only in Worker secrets.
-- Staff writes, and any read of requester email or address, need `SEEDFLOW_ADMIN_KEY` (checked server-side with a timing-safe compare). Without a key, production builds are read-only.
-- Packing slips and the non-staff API never include contact details. CSV exports guard against spreadsheet formula injection.
-- **Next step:** replace the shared key with per-user login and roles (staff vs. Seed Steward).
+- **No login:** the prototype has no access control, so anyone who can reach the app can read and change data. Add access control before real use.
+- Packing slips never include contact details. CSV exports guard against spreadsheet formula injection.
+- **Next step:** put the app behind Cloudflare Access, then add per-user roles (staff vs. Seed Steward).
 
 ## Where things live
 

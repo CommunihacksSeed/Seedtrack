@@ -49,7 +49,6 @@ export default function InventoryPage() {
   }, [state, q, cat, stock]);
 
   if (!state) return <Loading />;
-  const staff = state.staff;
 
   async function remove(s: Seed) {
     if (!confirm(`Delete ${seedLabel(s)} from inventory? This can't be undone.`)) return;
@@ -75,10 +74,10 @@ export default function InventoryPage() {
             <Button onClick={() => downloadExport("inventory").catch((e) => toast(e.message, "error"))}>
               <Download size={16} /> Export CSV
             </Button>
-            <Button onClick={() => setImporting(true)} disabled={!staff}>
+            <Button onClick={() => setImporting(true)}>
               <Upload size={16} /> Import CSV
             </Button>
-            <Button variant="primary" onClick={() => setEditing("new")} disabled={!staff}>
+            <Button variant="primary" onClick={() => setEditing("new")}>
               <Plus size={16} /> Add seed
             </Button>
           </>
@@ -145,16 +144,16 @@ export default function InventoryPage() {
                   <td className="px-4 py-3 text-muted">{s.storage_location ?? "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant={s.physical_quantity === null ? "primary" : "secondary"} onClick={() => setCounting(s)} disabled={!staff}>
+                      <Button size="sm" variant={s.physical_quantity === null ? "primary" : "secondary"} onClick={() => setCounting(s)}>
                         <ClipboardCheck size={14} /> {s.physical_quantity === null ? "Count" : "Update"}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setHistory(s)} aria-label={`History for ${seedLabel(s)}`}>
                         <History size={14} />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(s)} disabled={!staff} aria-label={`Edit ${seedLabel(s)}`}>
+                      <Button size="sm" variant="ghost" onClick={() => setEditing(s)} aria-label={`Edit ${seedLabel(s)}`}>
                         <Pencil size={14} />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => remove(s)} disabled={!staff} aria-label={`Delete ${seedLabel(s)}`}>
+                      <Button size="sm" variant="ghost" onClick={() => remove(s)} aria-label={`Delete ${seedLabel(s)}`}>
                         <Trash2 size={14} />
                       </Button>
                     </div>

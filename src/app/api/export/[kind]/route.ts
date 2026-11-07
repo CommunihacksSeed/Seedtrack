@@ -1,19 +1,17 @@
 import { connection } from "next/server";
 import { getStore } from "@/lib/store";
-import { isStaff } from "@/lib/server/auth";
 import { errorResponse, json } from "@/lib/server/http";
 import { toCsv } from "@/lib/csv";
 import { availableQuantity, seedLabel, stockStatus } from "@/lib/domain";
 import { distributionRows, seedMap } from "@/lib/views";
 import { MOVEMENT_LABELS } from "@/lib/types";
 
-/** CSV exports. Requester contact details are included only for staff. */
-export async function GET(req: Request, ctx: RouteContext<"/api/export/[kind]">) {
+/** CSV exports. */
+export async function GET(_req: Request, ctx: RouteContext<"/api/export/[kind]">) {
   await connection();
   const { kind } = await ctx.params;
   try {
     const db = await getStore().snapshot();
-    const staff = isStaff(req);
     let csv: string;
     switch (kind) {
       case "inventory":
@@ -25,10 +23,10 @@ export async function GET(req: Request, ctx: RouteContext<"/api/export/[kind]">)
       case "orders": {
         const seeds = seedMap(db);
         csv = toCsv(
-          ["order_number", "external_entry_id", "status", "organization_name", "requester_name", ...(staff ? ["requester_email", "mailing_address"] : []), "school_use", "student_count", "bundles", "items", "special_requests", "source", "submitted_at", "approved_at", "delivered_at"],
+          ["order_number", "external_entry_id", "status", "organization_name", "requester_name", "requester_email", "mailing_address", "school_use", "student_count", "bundles", "items", "special_requests", "source", "submitted_at", "approved_at", "delivered_at"],
           db.orders.map((o) => [
             o.order_number, o.external_entry_id, o.status, o.organization_name, o.requester_name,
-            ...(staff ? [o.requester_email, o.mailing_address] : []),
+            o.requester_email, o.mailing_address,
             o.school_use, o.student_count, o.requested_bundles,
             db.order_items.filter((i) => i.order_id === o.id).map((i) => {
               const s = i.seed_id ? seeds.get(i.seed_id) : null;

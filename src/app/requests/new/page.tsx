@@ -167,7 +167,7 @@ export default function NewRequestPage() {
         </Card>
         <div className="flex justify-end gap-2 lg:col-span-2">
           <LinkButton href="/requests">Cancel</LinkButton>
-          <Button type="submit" variant="primary" disabled={isSubmitting || !state.staff}>
+          <Button type="submit" variant="primary" disabled={isSubmitting}>
             Create request
           </Button>
         </div>

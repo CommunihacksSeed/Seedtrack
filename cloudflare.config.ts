@@ -17,7 +17,6 @@ export default defineConfig({
     env: {
       ASSETS: bindings.assets(),
       DB: bindings.d1({ id: "94072807-2577-41ea-b804-8ca9b20210ee", name: "seedflow" }),
-      SEEDFLOW_ADMIN_KEY: bindings.secret(),
       SEEDFLOW_DISABLE_DEMO_RESET: bindings.text("true"),
       APP_URL: bindings.text("https://seedflow.space"),
     },

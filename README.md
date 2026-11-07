@@ -46,15 +46,13 @@ npx cf d1 migrations apply 94072807-2577-41ea-b804-8ca9b20210ee --local --persis
 npm run dev
 ```
 
-Open http://localhost:3001. That ID is the one in `cloudflare.config.ts`; `--local` only touches the database on your machine. To test a production build, put `SEEDFLOW_ADMIN_KEY=<any value>` in `.dev.vars`, then run `npm run build` and `npm start`.
+Open http://localhost:3001. That ID is the one in `cloudflare.config.ts`; `--local` only touches the database on your machine. To test a production build, run `npm run build` and `npm start`.
 
 ### Deployment
 
 Production is at https://seedflow.space (Worker and D1 database both named `seedflow`). Sign in with `npx cf auth login`, then run `npm run deploy`. Apply new migrations first with `npx cf d1 migrations apply <database-id>`.
 
-To change the staff key, run `npx wrangler secret put SEEDFLOW_ADMIN_KEY --name seedflow`.
-
-**Always set `SEEDFLOW_ADMIN_KEY`.** Without it, a production deployment is read-only and hides requester contact details. `SEEDFLOW_DISABLE_DEMO_RESET` is on in `cloudflare.config.ts`, so **Reset demo data** can't wipe the live database.
+**There is no login or access control.** Anyone who can open the site can read and change data, including requester contact details. Put the site behind Cloudflare Access or add per-user login before handling real data. `SEEDFLOW_DISABLE_DEMO_RESET` is on in `cloudflare.config.ts`, so **Reset demo data** can't wipe the live database.
 
 ## Commands
 
@@ -73,14 +71,14 @@ See [`.env.example`](.env.example). Nothing is required for local development.
 ## Test results
 
 - `npm test`: all passing, including concurrent approvals, double-clicked approve and deliver, concurrent duplicate imports, a 1,000-order atomic import, route planning, bundles and settings. Store tests run on Miniflare's D1.
-- The full flow also passes on the production build served by local workerd: staff key checks, hidden contact details, parallel approvals, double delivery and a 300-order import.
+- The full flow also passes on the production build served by local workerd: parallel approvals, double delivery and a 300-order import.
 - With the compare-and-swap guard disabled, the five concurrency tests fail, so they do exercise it.
 
 ## Known limitations
 
-- **Route distances are estimates:** straight-line distance × 1.3. Use the Google Maps link for real driving directions. Address lookup uses OpenStreetMap Nominatim from the staff member's browser.
-- **Email sending** is built for Resend's API but hasn't been tested with a live account. Without a key, notifications are only logged. An import of more than 10 new requests sends staff one summary.
-- **Staff access is a shared key**, not individual logins. Replace it with per-user login and roles before handling real requester data.
+- **Route distances are estimates:** straight-line distance × 1.3. Use the Google Maps link for real driving directions. Address lookup uses OpenStreetMap's free service, limited to about one address per second.
+- **Email sending** is built for Resend's API but hasn't been tested with a live account. Without a key, notifications are only logged.
+- **No login or access control.** Anyone who can open the app can change data and see requester contact details. Add Cloudflare Access or per-user login with roles before handling real data.
 - **No live Cognito sync.** The adapter refuses to guess endpoints. Import exports instead, and finish `src/lib/integrations/cognito.ts` once the API is confirmed.
 - **Partial fulfilment isn't supported.** Orders are delivered in full; to send less, change approved quantities during review. Marked as future work.
 - Seed name matching only auto-links exact, unambiguous names. Everything else waits for staff, by design.

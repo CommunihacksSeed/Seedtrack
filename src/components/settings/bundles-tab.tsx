@@ -11,7 +11,6 @@ import type { AppSettings, Bundle } from "@/lib/types";
 export function BundlesTab() {
   const { state, mutate, toast } = useData();
   const db = state!.snapshot;
-  const staff = state!.staff;
   const seeds = new Map(db.seeds.map((s) => [s.id, s]));
   const [editing, setEditing] = useState<Bundle | "new" | null>(null);
 
@@ -32,7 +31,7 @@ export function BundlesTab() {
           title="Bundle templates"
           subtitle="What each bundle contains. During review, one click adds a bundle's seeds to a request."
           action={
-            <Button size="sm" variant="primary" onClick={() => setEditing("new")} disabled={!staff}>
+            <Button size="sm" variant="primary" onClick={() => setEditing("new")}>
               <Plus size={14} /> New bundle
             </Button>
           }
@@ -56,10 +55,10 @@ export function BundlesTab() {
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(b)} disabled={!staff} aria-label={`Edit ${b.name}`}>
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(b)} aria-label={`Edit ${b.name}`}>
                     <Pencil size={14} />
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => remove(b)} disabled={!staff} aria-label={`Delete ${b.name}`}>
+                  <Button size="sm" variant="ghost" onClick={() => remove(b)} aria-label={`Delete ${b.name}`}>
                     <Trash2 size={14} />
                   </Button>
                 </div>
@@ -158,7 +157,7 @@ function BundleForm({ bundle, onDone }: { bundle: Bundle | null; onDone: () => v
 }
 
 function AllocationCard({ rule }: { rule: AppSettings["allocation"] }) {
-  const { state, mutate, toast } = useData();
+  const { mutate, toast } = useData();
   const [draft, setDraft] = useState({
     mode: rule.mode,
     fixed: String(rule.fixed),
@@ -235,7 +234,7 @@ function AllocationCard({ rule }: { rule: AppSettings["allocation"] }) {
         )}
         <p className="text-xs text-muted">Current rule: {describeRule(rule)}</p>
         <div className="flex justify-end">
-          <Button variant="primary" onClick={save} disabled={!state!.staff || busy}>
+          <Button variant="primary" onClick={save} disabled={busy}>
             Save rule
           </Button>
         </div>

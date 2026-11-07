@@ -115,13 +115,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <main className="min-w-0 flex-1">
-        {state && !state.staff && (
-          <div className="no-print border-b border-sky-200 bg-sky-50 px-4 py-2 text-center text-xs font-medium text-sky-900 lg:px-8">
-            {state.authMode === "read-only"
-              ? "Read-only view: staff changes are disabled on this deployment."
-              : "View-only: enter the staff key in Settings to make changes and see contact details."}
-          </div>
-        )}
         <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-8">{children}</div>
       </main>
     </div>

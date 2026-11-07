@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Database, KeyRound, PlugZap, RotateCcw } from "lucide-react";
-import { getStaffKey, setStaffKey, useData } from "@/components/data-provider";
-import { Badge, Button, Card, CardHeader, Field, Loading, Modal, inputCls } from "@/components/ui";
+import { Database, PlugZap, RotateCcw } from "lucide-react";
+import { useData } from "@/components/data-provider";
+import { Badge, Button, Card, CardHeader, Loading, Modal } from "@/components/ui";
 
 export function SystemTab() {
-  const { state, mutate, refresh, toast } = useData();
-  const [key, setKey] = useState(() => (typeof window === "undefined" ? "" : getStaffKey()));
+  const { state, mutate, toast } = useData();
   const [confirmReset, setConfirmReset] = useState(false);
   const [busy, setBusy] = useState(false);
   if (!state) return <Loading />;
@@ -34,43 +33,6 @@ export function SystemTab() {
           </div>
         </Card>
 
-        <Card>
-          <CardHeader title="Staff access" action={<KeyRound size={18} className="text-forest-500" />} />
-          <div className="space-y-3 p-5 text-sm">
-            <p>
-              {state.authMode === "open-dev" && (
-                <>
-                  <Badge tone="amber">Development mode</Badge> No staff key is configured, so changes are allowed because this is a development server. Set{" "}
-                  <code>SEEDFLOW_ADMIN_KEY</code> before deploying.
-                </>
-              )}
-              {state.authMode === "read-only" && (
-                <>
-                  <Badge tone="slate">Read-only</Badge> This deployment has no staff key configured, so all changes are disabled.
-                </>
-              )}
-              {state.authMode === "key" && (state.staff ? <Badge tone="green">Signed in as staff</Badge> : <Badge tone="gray">View-only</Badge>)}
-            </p>
-            {state.authMode === "key" && (
-              <form
-                className="flex gap-2"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setStaffKey(key.trim());
-                  await refresh();
-                  toast(key.trim() ? "Staff key saved on this device" : "Staff key removed");
-                }}
-              >
-                <Field label="Staff key" className="flex-1" hint="Stored only in this browser.">
-                  <input className={inputCls} type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" />
-                </Field>
-                <Button type="submit" variant="primary" className="mt-6 self-start">
-                  Save
-                </Button>
-              </form>
-            )}
-          </div>
-        </Card>
 
         <Card>
           <CardHeader title="Cognito Forms" action={<PlugZap size={18} className="text-forest-500" />} />
@@ -84,7 +46,7 @@ export function SystemTab() {
               Until live sync is set up, export entries from Cognito Forms and use <strong>Seed Requests → Import CSV / JSON</strong>. Entry IDs are used to skip
               duplicates, so re-importing the same export is safe.
             </p>
-            <Button onClick={sync} disabled={!state.staff}>
+            <Button onClick={sync}>
               Sync now
             </Button>
           </div>
@@ -97,7 +59,7 @@ export function SystemTab() {
               Replace <strong>all</strong> inventory and requests with the fictional demo dataset (Tomato Crimson Giant at 50 packets, three open requests, two past deliveries,
               basil not yet counted). Use this before a demo.
             </p>
-            <Button variant="danger" onClick={() => setConfirmReset(true)} disabled={!state.staff}>
+            <Button variant="danger" onClick={() => setConfirmReset(true)}>
               <RotateCcw size={16} /> Reset demo data
             </Button>
           </div>

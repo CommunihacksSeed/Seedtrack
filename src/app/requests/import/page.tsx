@@ -237,7 +237,7 @@ export default function ImportRequestsPage() {
               {results ? (
                 <LinkButton href="/requests" variant="primary">Go to requests</LinkButton>
               ) : (
-                <Button variant="primary" onClick={submit} disabled={busy || importable.length === 0 || !state.staff}>
+                <Button variant="primary" onClick={submit} disabled={busy || importable.length === 0}>
                   Import {importable.length} request{importable.length === 1 ? "" : "s"}
                 </Button>
               )}
