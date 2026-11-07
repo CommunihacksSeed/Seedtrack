@@ -50,7 +50,9 @@ Open http://localhost:3001. That ID is the one in `cloudflare.config.ts`; `--loc
 
 ### Deployment
 
-Production is at https://seedflow.space (Worker and D1 database both named `seedflow`). Sign in with `npx cf auth login`, then run `npm run deploy`. Apply new migrations first with `npx cf d1 migrations apply <database-id>`.
+Production is at https://seedflow.space (Worker and D1 database both named `seedflow`). Workers Builds deploys every push to `main`: it runs `npm run deploy:ci`, which applies new migrations and then deploys. Follow a build in the Cloudflare dashboard under **seedflow → Deployments**.
+
+Open pages check `/api/version` every 10 seconds. A data change reloads the data, and a new deployment offers a **Reload** prompt.
 
 **There is no login or access control.** Anyone who can open the site can read and change data, including requester contact details. Put the site behind Cloudflare Access or add per-user login before handling real data. `SEEDFLOW_DISABLE_DEMO_RESET` is on in `cloudflare.config.ts`, so **Reset demo data** can't wipe the live database.
 

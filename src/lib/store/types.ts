@@ -24,6 +24,8 @@ export type StoreMode = "d1";
 export interface SeedFlowStore {
   mode: StoreMode;
   snapshot(): Promise<DataSnapshot>;
+  /** Changes on every write. */
+  version(): Promise<number>;
 
   /**
    * Run domain functions as one atomic write. `fn` must be synchronous and may
