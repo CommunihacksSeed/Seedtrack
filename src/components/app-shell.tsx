@@ -79,7 +79,6 @@ function Footer() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { state } = useData();
   return (
     <div className="min-h-screen lg:flex">
       <aside className="no-print sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between border-r border-sage-200 bg-cream px-4 py-5 lg:flex">
