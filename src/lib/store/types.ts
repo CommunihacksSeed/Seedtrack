@@ -1,4 +1,9 @@
 import type {
+  AppSettings,
+  Bundle,
+  BundleInput,
+  DeliveryInput,
+  NotificationLogEntry,
   DataSnapshot,
   Order,
   OrderInput,
@@ -8,6 +13,10 @@ import type {
   Seed,
   SeedInput,
 } from "../types";
+
+export type SettingsPatch = {
+  [K in keyof AppSettings]?: Partial<Omit<AppSettings[K], "events">> & (K extends "notifications" ? { events?: Partial<AppSettings["notifications"]["events"]> } : unknown);
+};
 
 export type StoreMode = "d1";
 
@@ -40,6 +49,14 @@ export interface SeedFlowStore {
   markReady(orderId: string): Promise<Order>;
   deliverOrder(orderId: string): Promise<Order>;
   cancelOrder(orderId: string, reason: string | null): Promise<Order>;
+
+  setDelivery(orderId: string, input: DeliveryInput): Promise<Order>;
+  addBundleItems(orderId: string, bundleId: string): Promise<number>;
+
+  updateSettings(patch: SettingsPatch): Promise<AppSettings>;
+  saveBundle(id: string | null, input: BundleInput): Promise<Bundle>;
+  deleteBundle(id: string): Promise<void>;
+  logNotification(entry: Omit<NotificationLogEntry, "id" | "created_at">): Promise<void>;
 
   resetDemo(): Promise<void>;
 }

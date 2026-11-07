@@ -44,6 +44,10 @@ Availability is always `physical − reserved`. `physical_quantity = NULL` means
 | `order_items` | Requested seed (free text), nullable `requested_quantity`, matched `seed_id` (nullable until staff match it), `approved_quantity` (null = undecided), `packed_quantity`, `unavailable`. |
 | `inventory_movements` | Append-only audit log: initial count, adjustment, reservation, release, fulfilment. Records the signed quantity and the resulting physical and reserved values. |
 | `order_status_history` | Every status change, with notes. |
+| `app_settings` | One JSON settings document: notification switches, suggestion rule, delivery start point and trip settings. Validated in `domain.updateSettings`. |
+| `bundles` | Bundle templates: name + `[{seed_id, quantity}]`. `sf_add_bundle_items` adds a bundle's seeds to an order under review. |
+| `notification_log` | Every notification composed, with status `sent`, `logged`, `skipped` or `failed`. |
+| `orders.delivery_method / delivery_lat / delivery_lng` | Drop-off, mail or pickup, plus map coordinates for route planning (hidden from non-staff). |
 
 ## Concurrency and idempotency
 
@@ -63,6 +67,14 @@ CHECK constraints are a second safety net: even a buggy code path can't commit `
 - `src/lib/import-mapping.ts` maps any source row (CSV, JSON or webhook) to an `OrderInput`. Column names are guessed from the labels on the 2026 YFS form, but **staff confirm the mapping** in the UI before anything is saved. Seed lists accept `Kale`, `Kale x5`, `Kale (5)`, `5 x Kale`, separated by `;`, `,`, `|` or newlines.
 - The import screen shows row-level errors and duplicates (same Entry ID already in the system or repeated in the file) before you confirm. The server validates every row again.
 - `src/lib/integrations/cognito.ts` defines the `CognitoAdapter` interface and reports “Cognito Forms integration not configured”. It **makes no live calls**, because the endpoint format wasn't verified. The webhook route is off unless `COGNITO_WEBHOOK_SECRET` is set, and then every call must present the secret.
+
+## Notifications
+
+`src/lib/server/notify.ts`. Route handlers schedule a notification with Next's `after()`, so it never slows down or breaks the staff action. The notification is skipped unless notifications are on **and** that event is switched on. Low-stock alerts fire only when a seed **newly** becomes Low or Out of Stock after an approval, delivery or stock count. Messages are emailed through Resend only if `RESEND_API_KEY` and `NOTIFY_FROM_EMAIL` are set; either way they are written to `notification_log`.
+
+## Delivery planning
+
+`src/lib/routing.ts` builds the route with nearest-neighbour construction, then improves it with 2-opt. Distances are haversine × 1.3. Long runs are cut into trips of at most N stops along the optimized tour, and each trip is re-optimized. Address lookup (`src/lib/geocode.ts`) runs in the staff member's browser with OpenStreetMap Nominatim, spaced one second apart. Each trip opens in Google Maps through its public directions URL, so no API key is needed.
 
 ## Security model (prototype)
 

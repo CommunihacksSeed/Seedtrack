@@ -12,6 +12,9 @@ import {
   emptySnapshot,
   markReady,
   packItems,
+  saveBundle,
+  setDelivery,
+  updateSettings,
 } from "./domain";
 import type { DataSnapshot, SeedInput } from "./types";
 
@@ -40,6 +43,42 @@ const SEEDS: SeedInput[] = [
 export function buildDemoSnapshot(): DataSnapshot {
   const db = emptySnapshot();
   for (const s of SEEDS) createSeed(db, s, daysAgo(30, 9));
+  const seedId = (name: string, variety: string | null = null) =>
+    db.seeds.find((s) => s.name === name && s.variety === variety)!.id;
+
+  // Fictional bundle contents (YFS hasn't shared real ones yet).
+  saveBundle(db, null, {
+    name: "Spring",
+    description: "Cool-season greens and roots (demo contents)",
+    items: [
+      { seed_id: seedId("Spinach"), quantity: 2 },
+      { seed_id: seedId("Kale"), quantity: 2 },
+      { seed_id: seedId("Radish"), quantity: 2 },
+    ],
+  }, daysAgo(30, 9));
+  saveBundle(db, null, {
+    name: "Fall Harvest",
+    description: "Seeds for a fall harvest (demo contents)",
+    items: [
+      { seed_id: seedId("Carrot", "Scarlet Nantes"), quantity: 2 },
+      { seed_id: seedId("Pumpkin"), quantity: 1 },
+      { seed_id: seedId("Kale"), quantity: 1 },
+    ],
+  }, daysAgo(30, 9));
+  saveBundle(db, null, {
+    name: "Herbs",
+    description: "Kitchen herbs (demo contents)",
+    items: [{ seed_id: seedId("Basil"), quantity: 2 }],
+  }, daysAgo(30, 9));
+
+  updateSettings(db, {
+    notifications: { staff_email: "staff@example.org" },
+    allocation: { mode: "per_students", students_per_packet: 10, min: 1, max: 5 },
+    delivery: { depot_name: "YFS seed hub (demo location)", depot_address: "Downtown Ottawa, ON (demo)", depot_lat: 45.4215, depot_lng: -75.6972 },
+  });
+  // Fictional coordinates for the fictional addresses below.
+  const place = (orderId: string, method: "drop-off" | "mail" | "pickup", lat: number, lng: number) =>
+    setDelivery(db, orderId, { delivery_method: method, delivery_lat: lat, delivery_lng: lng });
 
   const fulfil = (orderId: string, at: number) => {
     const items = db.order_items.filter((i) => i.order_id === orderId);
@@ -74,6 +113,7 @@ export function buildDemoSnapshot(): DataSnapshot {
     },
     daysAgo(24),
   ).order;
+  place(e.id, "drop-off", 45.3601, -75.7262);
   fulfil(e.id, 22);
 
   const f = createOrder(
@@ -94,6 +134,7 @@ export function buildDemoSnapshot(): DataSnapshot {
     },
     daysAgo(16),
   ).order;
+  place(f.id, "mail", 43.7, -79.42);
   fulfil(f.id, 14);
 
   // Order C — already approved (reserves 6 radish).
@@ -112,11 +153,12 @@ export function buildDemoSnapshot(): DataSnapshot {
     },
     daysAgo(6),
   ).order;
+  place(c.id, "drop-off", 45.411, -75.735);
   const cItems = db.order_items.filter((i) => i.order_id === c.id);
   approveOrder(db, c.id, cItems.map((i) => ({ item_id: i.id, seed_id: i.seed_id, approved_quantity: 6, unavailable: false })), daysAgo(5));
 
   // Order A — the main demo order (10 tomato).
-  createOrder(
+  const a = createOrder(
     db,
     {
       requester_name: "Taylor Sample",
@@ -136,9 +178,10 @@ export function buildDemoSnapshot(): DataSnapshot {
       ],
     },
     daysAgo(3),
-  );
+  ).order;
+  place(a.id, "drop-off", 45.3876, -75.696);
 
-  createOrder(
+  const b = createOrder(
     db,
     {
       requester_name: "Morgan Test",
@@ -155,10 +198,11 @@ export function buildDemoSnapshot(): DataSnapshot {
       ],
     },
     daysAgo(2),
-  );
+  ).order;
+  place(b.id, "mail", 44.2312, -76.486);
 
   // Order D — shaped like a real Cognito submission: bundles + varieties, no quantities.
-  createOrder(
+  const d = createOrder(
     db,
     {
       external_entry_id: "DEMO-12",
@@ -182,7 +226,8 @@ export function buildDemoSnapshot(): DataSnapshot {
       ],
     },
     daysAgo(1),
-  );
+  ).order;
+  place(d.id, "drop-off", 45.347, -75.76);
 
   return db;
 }

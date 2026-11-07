@@ -21,6 +21,9 @@ Request → Review → Inventory check → Approval (reserve) → Packing → Re
 | **Seed Requests** | Enter requests by hand, or import CSV/JSON (Cognito exports) with column mapping, row-by-row validation, preview and **duplicate detection by Cognito Entry ID**. Requests without packet quantities import fine; staff decide quantities during review. |
 | **Review & approval** | Match each requested seed to inventory (exact unique matches are automatic; unclear ones are flagged **“Inventory Match Required”**). Set approved quantities, mark items unavailable and add varieties to fill a bundle. Approval **reserves stock atomically** and fails cleanly if anything is short. |
 | **Packing Queue** | Organized **by seed** by default: total packets needed per seed across all approved orders, split by order, with one-click **Pack all** and a printable pick list sorted by shelf. A **By order** view, steward assignment, per-order packing slips (no contact details) and Mark Ready once everything is packed. |
+| **Deliveries** | Choose drop-off, mail or pickup for each order. Drop-off addresses are located on the map (OpenStreetMap lookup or pasted coordinates). SeedFlow plans the **shortest route** from your start point (nearest-neighbour + 2-opt), splits long runs into trips, estimates km and time, and opens each trip in Google Maps. You can print the route sheet and mark stops delivered as you go. |
+| **Notifications** | **Off by default.** Turn them on in Settings and choose the events: new request (to staff), approved / packed / delivered (to the requester), and low stock (to staff). Every message is kept in a log. Real emails go out only if an email service (Resend) is configured. |
+| **Bundles & suggestions** | Define what each bundle (Spring, Fall Harvest, Herbs…) contains, then add a bundle's seeds to a request with one click. An optional rule pre-fills suggested packets when the requester gave no quantity (fixed amount or per number of students). Staff still confirm every number. |
 | **Fulfilment** | Delivering deducts physical stock and releases the reservation **exactly once**. Cancelling releases reservations without touching physical stock. |
 | **Dashboard & Reports** | Stock totals (counted items only), alerts, orders by status, distribution by category and organization, requests over time, outstanding orders and recent activity. CSV exports for inventory, orders, distribution and stock history. |
 | **Cognito Forms** | An adapter boundary, a status page and an optional secret-protected webhook. **No live API calls**, because Cognito's REST API wasn't verified and no credentials were available. Import CSV/JSON exports instead. |
@@ -32,6 +35,10 @@ SeedFlow runs on Cloudflare Workers with a D1 (SQLite) database bound as `DB`. T
 Every inventory change is one atomic D1 batch guarded by a compare-and-swap on `store_meta.version`, so a stale writer is rolled back and re-checked against current stock (see [`ARCHITECTURE.md`](ARCHITECTURE.md)).
 
 ### Local development
+
+**On a Mac:** double-click **`Start SeedFlow.command`**. It installs everything on first run (Node 20+ required) and opens http://localhost:3000. If macOS says it's from an unidentified developer, right-click it and choose **Open**.
+
+Or from a terminal:
 
 ```bash
 npm install
@@ -65,12 +72,14 @@ See [`.env.example`](.env.example). Nothing is required for local development.
 
 ## Test results
 
-- `npm test`: 28/28 passing, including concurrent approvals, double-clicked approve and deliver, concurrent duplicate imports and a 1,000-order atomic import, all on Miniflare's D1.
+- `npm test`: all passing, including concurrent approvals, double-clicked approve and deliver, concurrent duplicate imports, a 1,000-order atomic import, route planning, bundles and settings. Store tests run on Miniflare's D1.
 - The full flow also passes on the production build served by local workerd: staff key checks, hidden contact details, parallel approvals, double delivery and a 300-order import.
 - With the compare-and-swap guard disabled, the five concurrency tests fail, so they do exercise it.
 
 ## Known limitations
 
+- **Route distances are estimates:** straight-line distance × 1.3. Use the Google Maps link for real driving directions. Address lookup uses OpenStreetMap Nominatim from the staff member's browser.
+- **Email sending** is built for Resend's API but hasn't been tested with a live account. Without a key, notifications are only logged. An import of more than 10 new requests sends staff one summary.
 - **Staff access is a shared key**, not individual logins. Replace it with per-user login and roles before handling real requester data.
 - **No live Cognito sync.** The adapter refuses to guess endpoints. Import exports instead, and finish `src/lib/integrations/cognito.ts` once the API is confirmed.
 - **Partial fulfilment isn't supported.** Orders are delivered in full; to send less, change approved quantities during review. Marked as future work.

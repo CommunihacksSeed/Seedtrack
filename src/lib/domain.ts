@@ -8,7 +8,14 @@
  */
 import {
   ACTIVE_STATUSES,
+  AppSettings,
+  Bundle,
+  BundleInput,
   DataSnapshot,
+  DELIVERY_METHODS,
+  DeliveryInput,
+  NOTIFICATION_EVENTS,
+  NotificationLogEntry,
   InventoryMovement,
   MovementType,
   Order,
@@ -244,6 +251,7 @@ export function deleteSeed(db: DataSnapshot, id: string) {
     throw new DomainError("This seed appears in past orders. Keep it for reporting history instead of deleting.", 409, "in_use");
   db.seeds = db.seeds.filter((s) => s.id !== id);
   db.inventory_movements = db.inventory_movements.filter((m) => m.seed_id !== id);
+  for (const b of db.bundles) b.items = b.items.filter((i) => i.seed_id !== id);
 }
 
 // ---------- Orders ----------
@@ -282,6 +290,9 @@ export function createOrder(
     garden_support: input.garden_support ?? null,
     seed_donation_interest: input.seed_donation_interest ?? null,
     assigned_steward: null,
+    delivery_method: null,
+    delivery_lat: null,
+    delivery_lng: null,
     status: "Received",
     source: input.source || "manual",
     submitted_at: input.submitted_at || at,
@@ -544,6 +555,194 @@ export function cancelOrder(db: DataSnapshot, orderId: string, reason: string | 
   return order;
 }
 
+// ---------- Delivery ----------
+
+function validCoord(v: number | null | undefined, min: number, max: number, field: string) {
+  if (v === null || v === undefined) return;
+  if (typeof v !== "number" || !Number.isFinite(v) || v < min || v > max) throw new DomainError(`${field} is out of range.`);
+}
+
+export function setDelivery(db: DataSnapshot, orderId: string, input: DeliveryInput, at = iso()): Order {
+  const order = getOrder(db, orderId);
+  if (input.delivery_method !== undefined && input.delivery_method !== null && !DELIVERY_METHODS.includes(input.delivery_method))
+    throw new DomainError("Unknown delivery method.");
+  validCoord(input.delivery_lat, -90, 90, "Latitude");
+  validCoord(input.delivery_lng, -180, 180, "Longitude");
+  const lat = input.delivery_lat !== undefined ? input.delivery_lat : order.delivery_lat;
+  const lng = input.delivery_lng !== undefined ? input.delivery_lng : order.delivery_lng;
+  if ((lat === null) !== (lng === null)) throw new DomainError("Provide both latitude and longitude, or neither.");
+  if (input.delivery_method !== undefined) order.delivery_method = input.delivery_method;
+  order.delivery_lat = lat;
+  order.delivery_lng = lng;
+  order.updated_at = at;
+  return order;
+}
+
+// ---------- Bundles ----------
+
+function validateBundle(db: DataSnapshot, input: BundleInput, selfId: string | null) {
+  if (!input.name?.trim()) throw new DomainError("Bundle name is required.");
+  const clash = db.bundles.find((b) => b.id !== selfId && norm(b.name) === norm(input.name));
+  if (clash) throw new DomainError(`A bundle called "${clash.name}" already exists.`, 409, "duplicate");
+  const seen = new Set<string>();
+  for (const i of input.items) {
+    if (!db.seeds.some((s) => s.id === i.seed_id)) throw new DomainError("A bundle item refers to a seed that no longer exists.");
+    if (seen.has(i.seed_id)) throw new DomainError("Each seed can appear only once in a bundle.");
+    seen.add(i.seed_id);
+    assertNonNegInt(i.quantity, "Bundle quantity");
+    if (i.quantity === 0) throw new DomainError("Bundle quantities must be at least 1.");
+  }
+}
+
+export function saveBundle(db: DataSnapshot, id: string | null, input: BundleInput, at = iso()): Bundle {
+  validateBundle(db, input, id);
+  if (id) {
+    const b = db.bundles.find((x) => x.id === id);
+    if (!b) throw new DomainError("Bundle not found.", 404, "not_found");
+    b.name = input.name.trim();
+    b.description = input.description?.trim() || null;
+    b.items = input.items.map((i) => ({ ...i }));
+    b.updated_at = at;
+    return b;
+  }
+  const b: Bundle = {
+    id: uuid(),
+    name: input.name.trim(),
+    description: input.description?.trim() || null,
+    items: input.items.map((i) => ({ ...i })),
+    created_at: at,
+    updated_at: at,
+  };
+  db.bundles.push(b);
+  return b;
+}
+
+export function deleteBundle(db: DataSnapshot, id: string) {
+  if (!db.bundles.some((b) => b.id === id)) throw new DomainError("Bundle not found.", 404, "not_found");
+  db.bundles = db.bundles.filter((b) => b.id !== id);
+}
+
+/** Add a bundle's seeds to an order under review (skipping seeds already on it). Returns how many were added. */
+export function addBundleItems(db: DataSnapshot, orderId: string, bundleId: string, at = iso()): number {
+  const order = getOrder(db, orderId);
+  if (!REVIEWABLE_STATUSES.includes(order.status))
+    throw new DomainError("Items can only be added while the request is under review.", 409, "bad_status");
+  const bundle = db.bundles.find((b) => b.id === bundleId);
+  if (!bundle) throw new DomainError("Bundle not found.", 404, "not_found");
+  const onOrder = new Set(itemsOf(db, orderId).map((i) => i.seed_id).filter(Boolean));
+  let added = 0;
+  for (const bi of bundle.items) {
+    if (onOrder.has(bi.seed_id)) continue;
+    const seed = db.seeds.find((s) => s.id === bi.seed_id);
+    if (!seed) continue;
+    db.order_items.push({
+      id: uuid(),
+      order_id: orderId,
+      seed_id: seed.id,
+      requested_seed_name: seedLabel(seed),
+      requested_quantity: bi.quantity,
+      approved_quantity: null,
+      packed_quantity: 0,
+      unavailable: false,
+      created_at: at,
+    });
+    added++;
+  }
+  order.updated_at = at;
+  return added;
+}
+
+// ---------- Settings & notifications ----------
+
+export function defaultSettings(): AppSettings {
+  return {
+    notifications: {
+      enabled: false,
+      events: Object.fromEntries(NOTIFICATION_EVENTS.map((e) => [e, true])) as AppSettings["notifications"]["events"],
+      staff_email: null,
+    },
+    allocation: { mode: "none", fixed: 2, students_per_packet: 10, min: 1, max: 5 },
+    delivery: {
+      depot_name: "YFS seed hub",
+      depot_address: null,
+      depot_lat: null,
+      depot_lng: null,
+      max_stops_per_trip: 8,
+      avg_speed_kmh: 35,
+      minutes_per_stop: 10,
+      return_to_depot: true,
+    },
+  };
+}
+
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+
+/** Merge and validate a partial settings update. */
+export function updateSettings(db: DataSnapshot, patch: DeepPartial<AppSettings>): AppSettings {
+  const next: AppSettings = structuredClone(db.settings);
+  if (patch.notifications) {
+    const n = patch.notifications;
+    if (n.enabled !== undefined) next.notifications.enabled = Boolean(n.enabled);
+    if (n.staff_email !== undefined) {
+      const e = n.staff_email?.trim() || null;
+      if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new DomainError("Staff email looks invalid.");
+      next.notifications.staff_email = e;
+    }
+    if (n.events) for (const k of NOTIFICATION_EVENTS) if (n.events[k] !== undefined) next.notifications.events[k] = Boolean(n.events[k]);
+  }
+  if (patch.allocation) {
+    const a = { ...next.allocation, ...patch.allocation };
+    if (!["none", "fixed", "per_students"].includes(a.mode)) throw new DomainError("Unknown allocation mode.");
+    for (const [k, v] of [["fixed", a.fixed], ["students_per_packet", a.students_per_packet], ["min", a.min], ["max", a.max]] as const) {
+      assertNonNegInt(v, k.replace(/_/g, " "));
+      if (v === 0 && k !== "min") throw new DomainError(`${k.replace(/_/g, " ")} must be at least 1.`);
+    }
+    if (a.min > a.max) throw new DomainError("Minimum can't be more than maximum.");
+    next.allocation = a as AppSettings["allocation"];
+  }
+  if (patch.delivery) {
+    const d = { ...next.delivery, ...patch.delivery };
+    validCoord(d.depot_lat, -90, 90, "Depot latitude");
+    validCoord(d.depot_lng, -180, 180, "Depot longitude");
+    assertNonNegInt(d.max_stops_per_trip, "Max stops per trip");
+    if (d.max_stops_per_trip < 1 || d.max_stops_per_trip > 25) throw new DomainError("Max stops per trip must be 1–25.");
+    if (!(d.avg_speed_kmh > 0 && d.avg_speed_kmh <= 130)) throw new DomainError("Average speed must be between 1 and 130 km/h.");
+    assertNonNegInt(d.minutes_per_stop, "Minutes per stop");
+    d.depot_name = d.depot_name?.trim() || "Depot";
+    d.depot_address = d.depot_address?.trim() || null;
+    d.return_to_depot = Boolean(d.return_to_depot);
+    next.delivery = d as AppSettings["delivery"];
+  }
+  db.settings = next;
+  return next;
+}
+
+export function logNotification(db: DataSnapshot, entry: Omit<NotificationLogEntry, "id" | "created_at">, at = iso()) {
+  const e: NotificationLogEntry = { ...entry, id: uuid(), created_at: at };
+  db.notifications.unshift(e);
+  if (db.notifications.length > 500) db.notifications.length = 500;
+  return e;
+}
+
+/** Fill in fields added after a snapshot was first saved (older local demo files). */
+export function normalizeSnapshot(db: DataSnapshot): DataSnapshot {
+  const d = defaultSettings();
+  const s = (db.settings ?? {}) as Partial<AppSettings>;
+  db.settings = {
+    notifications: { ...d.notifications, ...s.notifications, events: { ...d.notifications.events, ...s.notifications?.events } },
+    allocation: { ...d.allocation, ...s.allocation },
+    delivery: { ...d.delivery, ...s.delivery },
+  };
+  db.bundles ??= [];
+  db.notifications ??= [];
+  for (const o of db.orders) {
+    o.delivery_method ??= null;
+    o.delivery_lat ??= null;
+    o.delivery_lng ??= null;
+  }
+  return db;
+}
+
 // ---------- Derived views ----------
 
 export function inventorySummary(seeds: Seed[]) {
@@ -569,6 +768,9 @@ export function emptySnapshot(): DataSnapshot {
     order_items: [],
     inventory_movements: [],
     order_status_history: [],
+    settings: defaultSettings(),
+    bundles: [],
+    notifications: [],
     next_order_number: 1001,
   };
 }

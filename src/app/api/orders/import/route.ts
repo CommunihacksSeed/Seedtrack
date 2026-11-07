@@ -3,6 +3,7 @@ import { getStore } from "@/lib/store";
 import { createOrder, DomainError } from "@/lib/domain";
 import { parseBody, staffWrite } from "@/lib/server/http";
 import { orderInputSchema } from "@/lib/schemas";
+import { notifyImportLater } from "@/lib/server/notify";
 
 type ImportResult = { row: number; status: "imported" | "duplicate" | "error"; message: string; order_number?: number };
 
@@ -11,13 +12,15 @@ const bodySchema = z.object({ orders: z.array(z.unknown()).max(1000) });
 /**
  * Import already-mapped requests (the client maps CSV/JSON columns and shows a
  * preview first). Every record is re-validated here. Duplicate Cognito entry
- * IDs are reported and not re-imported.
+ * IDs are reported and not re-imported. The whole file is one atomic write.
  */
 export async function POST(req: Request) {
   return staffWrite(req, async () => {
     const { orders } = await parseBody(req, bodySchema);
-    const results = await getStore().transact((draft) => {
+    const store = getStore();
+    const { results, imported } = await store.transact((draft) => {
       const rows: ImportResult[] = [];
+      const ids: string[] = [];
       for (let i = 0; i < orders.length; i++) {
         const parsed = orderInputSchema.safeParse(orders[i]);
         if (!parsed.success) {
@@ -27,6 +30,7 @@ export async function POST(req: Request) {
         }
         try {
           const { order, duplicate } = createOrder(draft, { ...parsed.data, source: parsed.data.source ?? "csv" });
+          if (!duplicate) ids.push(order.id);
           rows.push({
             row: i + 1,
             status: duplicate ? "duplicate" : "imported",
@@ -39,8 +43,9 @@ export async function POST(req: Request) {
           rows.push({ row: i + 1, status: "error", message: e instanceof DomainError ? e.message : "Server error" });
         }
       }
-      return rows;
+      return { results: rows, imported: ids };
     });
+    notifyImportLater(store, imported);
     return { results };
   });
 }

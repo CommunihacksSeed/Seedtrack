@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, Ban, CheckCircle2, Mail, MapPin, Package, Plus, Printer, Save, Truck, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Boxes, CheckCircle2, Mail, MapPin, Package, Plus, Printer, Save, Truck, Users } from "lucide-react";
 import { useData } from "@/components/data-provider";
 import { Badge, Button, Card, CardHeader, EmptyState, Loading, Modal, PageHeader, Qty, StatusBadge, fmtDate, inputCls, LinkButton } from "@/components/ui";
 import { availableQuantity, seedLabel } from "@/lib/domain";
-import { REVIEWABLE_STATUSES, RESERVING_STATUSES, type Order, type OrderItem, type Seed } from "@/lib/types";
+import { suggestQuantity } from "@/lib/allocation";
+import { DELIVERY_LABELS, DELIVERY_METHODS, REVIEWABLE_STATUSES, RESERVING_STATUSES, type Order, type OrderItem, type Seed } from "@/lib/types";
 
-type Row = { item: OrderItem; seedId: string; qty: string; unavailable: boolean };
+type Row = { item: OrderItem; seedId: string; qty: string; unavailable: boolean; suggested: boolean };
 
 export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,8 +26,9 @@ export default function RequestDetailPage() {
       </EmptyState>
     );
   const items = state.snapshot.order_items.filter((i) => i.order_id === id);
-  // Re-key so the draft resets whenever the saved order changes.
-  return <RequestDetail key={`${order.updated_at}-${items.length}`} order={order} items={items} />;
+    // Reset the review draft only when saved items or the status change (not e.g. the delivery method).
+  const draftKey = order.status + items.map((i) => `${i.id}:${i.seed_id}:${i.approved_quantity}:${i.unavailable}`).join("|");
+  return <RequestDetail key={draftKey} order={order} items={items} />;
 }
 
 function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
@@ -36,21 +38,30 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
   const seeds = db.seeds;
   const seedById = useMemo(() => new Map(seeds.map((s) => [s.id, s])), [seeds]);
   const reviewable = REVIEWABLE_STATUSES.includes(order.status);
+  const rule = db.settings.allocation;
   const [rows, setRows] = useState<Row[]>(() =>
-    items.map((item) => ({
-      item,
-      seedId: item.seed_id ?? "",
-      // Proposal: the requested quantity if the requester gave one; otherwise staff must decide.
-      qty: item.approved_quantity?.toString() ?? (item.requested_quantity?.toString() ?? ""),
-      unavailable: item.unavailable,
-    })),
+    items.map((item) => {
+      // Proposal order: saved decision → what they asked for → the suggestion rule (if on) → blank.
+      const suggestion = item.approved_quantity === null && item.requested_quantity === null ? suggestQuantity(rule, order.student_count) : null;
+      return {
+        item,
+        seedId: item.seed_id ?? "",
+        qty: item.approved_quantity?.toString() ?? item.requested_quantity?.toString() ?? suggestion?.toString() ?? "",
+        unavailable: item.unavailable,
+        suggested: suggestion !== null,
+      };
+    }),
   );
   const [busy, setBusy] = useState(false);
   const [newItem, setNewItem] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
 
-  const update = (idx: number, patch: Partial<Row>) => setRows((r) => r.map((x, i) => (i === idx ? { ...x, ...patch } : x)));
+  const update = (idx: number, patch: Partial<Row>) =>
+    setRows((r) => r.map((x, i) => (i === idx ? { ...x, ...patch, suggested: "qty" in patch ? false : x.suggested } : x)));
+  const norm = (s: string) => s.trim().toLowerCase();
+  const requestedBundles = order.requested_bundles.map((name) => ({ name, template: db.bundles.find((b) => norm(b.name) === norm(name)) }));
+  const otherBundles = db.bundles.filter((b) => !requestedBundles.some((r) => r.template?.id === b.id));
 
   // Live per-row checks, plus combined demand per seed (two rows can draw on the same seed).
   const demand = new Map<string, number>();
@@ -142,7 +153,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader
@@ -229,6 +240,11 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
                                   disabled={!staff || r.unavailable}
                                   aria-label={`Approved packets for ${r.item.requested_seed_name}`}
                                 />
+                                {r.suggested && !r.unavailable && (
+                                  <Badge tone="blue" className="text-[10px]">
+                                    Suggested
+                                  </Badge>
+                                )}
                                 <label className="flex items-center gap-1.5 text-xs">
                                   <input
                                     type="checkbox"
@@ -260,6 +276,45 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
             )}
             {reviewable && staff && (
               <div className="space-y-4 border-t border-sage-100 p-4">
+                {(requestedBundles.length > 0 || otherBundles.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl bg-forest-50/60 p-3 text-sm">
+                    <Boxes size={16} className="text-forest-600" />
+                    {requestedBundles.length > 0 && <span className="text-forest-900">Requested bundles:</span>}
+                    {requestedBundles.map(({ name, template }) =>
+                      template && template.items.every((bi) => rows.some((r) => r.item.seed_id === bi.seed_id)) ? (
+                        <Badge key={name} tone="green">
+                          <CheckCircle2 size={12} /> {template.name} seeds added
+                        </Badge>
+                      ) : template ? (
+                        <Button key={name} size="sm" onClick={() => act({ action: "add_bundle", bundle_id: template.id }, `Added ${template.name} seeds`)} disabled={busy}>
+                          <Plus size={13} /> Add {template.name} seeds
+                        </Button>
+                      ) : (
+                        <Badge key={name} tone="amber">
+                          {name}: no template —{" "}
+                          <Link href="/settings" className="underline">
+                            create one
+                          </Link>
+                        </Badge>
+                      ),
+                    )}
+                    {otherBundles.length > 0 && (
+                      <select
+                        className="rounded-lg border border-sage-200 bg-white px-2 py-1.5 text-xs text-forest-800"
+                        value=""
+                        onChange={(e) => e.target.value && act({ action: "add_bundle", bundle_id: e.target.value }, "Bundle seeds added")}
+                        aria-label="Add another bundle"
+                      >
+                        <option value="">{requestedBundles.length ? "Other bundle…" : "Add a bundle…"}</option>
+                        {otherBundles.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
                 <form
                   className="flex gap-2"
                   onSubmit={async (e) => {
@@ -302,7 +357,7 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-2 2xl:block 2xl:space-y-6">
           <Card>
             <CardHeader title="Request details" />
             <dl className="space-y-3 p-5 text-sm">
@@ -336,6 +391,27 @@ function RequestDetail({ order, items }: { order: Order; items: OrderItem[] }) {
                 </span>
               </Detail>
               <Detail label="Bundles">{order.requested_bundles.length ? order.requested_bundles.join(", ") : "—"}</Detail>
+              <Detail label="Delivery">
+                {staff && order.status !== "Delivered" && order.status !== "Cancelled" ? (
+                  <select
+                    className={`${inputCls} py-1 text-sm`}
+                    value={order.delivery_method ?? ""}
+                    onChange={(e) => act({ action: "set_delivery", delivery_method: e.target.value || null }, "Delivery method saved")}
+                    aria-label="Delivery method"
+                  >
+                    <option value="">Not decided</option>
+                    {DELIVERY_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {DELIVERY_LABELS[m]}
+                      </option>
+                    ))}
+                  </select>
+                ) : order.delivery_method ? (
+                  DELIVERY_LABELS[order.delivery_method]
+                ) : (
+                  "—"
+                )}
+              </Detail>
               <Detail label="Garden support">{order.garden_support === null ? "—" : order.garden_support ? "Requested" : "No"}</Detail>
               {order.special_requests && <Detail label="Special requests">{order.special_requests}</Detail>}
               <Detail label="Source">

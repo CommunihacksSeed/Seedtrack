@@ -8,6 +8,7 @@ export interface AppState {
   staff: boolean;
   authMode: "key" | "open-dev" | "read-only";
   cognito: { apiConfigured: boolean; webhookConfigured: boolean; message: string };
+  emailConfigured: boolean;
   snapshot: DataSnapshot;
 }
 

@@ -265,3 +265,40 @@ export function timeAgo(iso: string) {
   const d = Math.floor(s / 86400);
   return d === 1 ? "yesterday" : `${d}d ago`;
 }
+
+export function Switch({
+  checked,
+  onChange,
+  label,
+  description,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className={clsx("flex items-start justify-between gap-4", disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
+      <span>
+        <span className="block text-sm font-medium text-forest-900">{label}</span>
+        {description && <span className="block text-xs text-muted">{description}</span>}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={clsx(
+          "relative mt-0.5 inline-flex h-6 w-11 shrink-0 rounded-full transition-colors",
+          checked ? "bg-forest-600" : "bg-stone-300",
+        )}
+      >
+        <span className={clsx("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", checked ? "translate-x-5" : "translate-x-0.5")} />
+      </button>
+    </label>
+  );
+}

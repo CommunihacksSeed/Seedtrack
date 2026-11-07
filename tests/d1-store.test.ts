@@ -11,8 +11,10 @@ let mf: Miniflare;
 let db: D1Database;
 let store: SeedFlowStore;
 
-const TABLES = ["order_status_history", "inventory_movements", "order_items", "orders", "seeds", "store_meta"];
-const statements = readFileSync("migrations/0001_schema.sql", "utf8")
+const TABLES = ["notification_log", "bundles", "app_settings", "order_status_history", "inventory_movements", "order_items", "orders", "seeds", "store_meta"];
+const statements = ["0001_schema.sql", "0002_settings_bundles_delivery.sql"]
+  .map((f) => readFileSync(`migrations/${f}`, "utf8"))
+  .join(";\n")
   .replace(/^--.*$/gm, "")
   .split(";")
   .map((s) => s.trim())
@@ -165,4 +167,48 @@ describe("D1 store", () => {
     expect(results).toHaveLength(1000);
     expect((await store.snapshot()).orders.length).toBe(before + 1000);
   }, 30000);
+
+  it("persists settings, including across instances", async () => {
+    await store.updateSettings({ notifications: { enabled: true, staff_email: "hub@example.org" }, delivery: { max_stops_per_trip: 5 } });
+    const { settings } = await createD1Store(db).snapshot();
+    expect(settings.notifications.enabled).toBe(true);
+    expect(settings.notifications.staff_email).toBe("hub@example.org");
+    expect(settings.delivery.max_stops_per_trip).toBe(5);
+    expect(settings.delivery.avg_speed_kmh).toBe(35);
+  });
+
+  it("saves a bundle, adds it to an order, and drops deleted seeds from it", async () => {
+    const seed = await store.createSeed({ name: "Temp", category: "Other", physical_quantity: 5 });
+    const kale = (await store.snapshot()).seeds.find((s) => s.name === "Kale")!;
+    const bundle = await store.saveBundle(null, { name: "Starter", items: [{ seed_id: seed.id, quantity: 2 }, { seed_id: kale.id, quantity: 3 }] });
+    await expect(store.saveBundle(null, { name: "starter", items: [] })).rejects.toMatchObject({ code: "duplicate" });
+    const { order } = await store.createOrder({ requester_name: "A", organization_name: "B", requested_bundles: ["Starter"], items: [] });
+    expect(await store.addBundleItems(order.id, bundle.id)).toBe(2);
+    expect(await store.addBundleItems(order.id, bundle.id)).toBe(0);
+    const other = await store.saveBundle(null, { name: "Other", items: [{ seed_id: seed.id, quantity: 1 }] });
+    await store.cancelOrder(order.id, null);
+    await db.prepare("DELETE FROM order_items WHERE order_id = ?").bind(order.id).run();
+    await store.deleteSeed(seed.id);
+    const saved = (await store.snapshot()).bundles.find((b) => b.id === other.id)!;
+    expect(saved.items).toEqual([]);
+    await store.deleteBundle(other.id);
+    expect((await store.snapshot()).bundles.some((b) => b.id === other.id)).toBe(false);
+  });
+
+  it("stores delivery details and rejects half a coordinate", async () => {
+    const [{ order }] = await requests(1, 1);
+    await store.setDelivery(order.id, { delivery_method: "pickup", delivery_lat: 43.47, delivery_lng: -80.54 });
+    const saved = (await store.snapshot()).orders.find((o) => o.id === order.id)!;
+    expect([saved.delivery_method, saved.delivery_lat, saved.delivery_lng]).toEqual(["pickup", 43.47, -80.54]);
+    await expect(store.setDelivery(order.id, { delivery_lat: null })).rejects.toThrow(/both latitude/);
+  });
+
+  it("logs notifications and removes them on demo reset", async () => {
+    const entry = { event: "low_stock", order_id: null, seed_id: null, recipient: null, subject: "s", body: "b", status: "logged", error: null } as const;
+    await store.logNotification(entry);
+    await store.logNotification(entry);
+    expect((await store.snapshot()).notifications.filter((n) => n.subject === "s")).toHaveLength(2);
+    await store.resetDemo();
+    expect((await store.snapshot()).notifications.filter((n) => n.subject === "s")).toHaveLength(0);
+  });
 });
