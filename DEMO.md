@@ -32,9 +32,10 @@
 
 ## 2:05 — Pack (30s)
 
-- **Packing Queue**: assign a Seed Steward and tick off both items.
-- **Packing list** → Print. The printed list has no requester contact details.
-- **Mark ready.** It only works once every item is packed.
+- **Packing Queue** opens **By seed**: each card shows one seed, the total packets needed across all approved orders, and how many go to each order. Stewards pull each seed once.
+- Click **Pack all** on Tomato and Kale. **Print pick list** gives the same view on paper.
+- Under **Orders with everything packed**, open the order's **Slip** (no requester contact details), then **Mark ready**. Ready only works once every item is packed.
+- **By order** switches back to one card per order.
 
 ## 2:35 — Deliver (15s)
 

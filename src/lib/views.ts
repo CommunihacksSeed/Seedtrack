@@ -68,3 +68,34 @@ export function lowStockSeeds(seeds: Seed[]) {
 export const STATUS_ORDER: Record<OrderStatus, number> = Object.fromEntries(
   ORDER_STATUSES.map((s, i) => [s, i]),
 ) as Record<OrderStatus, number>;
+
+/**
+ * Pick list for the packing queue: one entry per seed with the total packets
+ * to pack across all given orders, plus how many go to each order.
+ * Sorted by storage location, then seed name, so stewards can walk the shelves.
+ */
+export function seedPickList(db: DataSnapshot, orders: Order[]) {
+  const ids = new Set(orders.map((o) => o.id));
+  const byId = new Map(orders.map((o) => [o.id, o]));
+  const seeds = seedMap(db);
+  const groups = new Map<
+    string,
+    { seed: Seed; total: number; packed: number; lines: { order: Order; item: DataSnapshot["order_items"][number] }[] }
+  >();
+  for (const item of db.order_items) {
+    if (!ids.has(item.order_id) || !item.seed_id || (item.approved_quantity ?? 0) <= 0) continue;
+    const seed = seeds.get(item.seed_id);
+    if (!seed) continue;
+    const g = groups.get(seed.id) ?? { seed, total: 0, packed: 0, lines: [] };
+    g.total += item.approved_quantity!;
+    g.packed += item.packed_quantity;
+    g.lines.push({ order: byId.get(item.order_id)!, item });
+    groups.set(seed.id, g);
+  }
+  for (const g of groups.values()) g.lines.sort((a, b) => a.order.order_number - b.order.order_number);
+  return [...groups.values()].sort(
+    (a, b) =>
+      (a.seed.storage_location ?? "~").localeCompare(b.seed.storage_location ?? "~") ||
+      seedLabel(a.seed).localeCompare(seedLabel(b.seed)),
+  );
+}

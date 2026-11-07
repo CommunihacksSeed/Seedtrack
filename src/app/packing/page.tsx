@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
-import { CheckCircle2, Circle, PackageOpen, Printer, Truck, UserRound } from "lucide-react";
+import { CheckCircle2, Circle, ClipboardList, PackageOpen, Printer, Sprout, Truck, UserRound } from "lucide-react";
 import { useData } from "@/components/data-provider";
 import { Button, LinkButton, Card, EmptyState, Loading, PageHeader, StatusBadge, fmtDate, inputCls } from "@/components/ui";
 import { seedLabel } from "@/lib/domain";
+import { seedPickList } from "@/lib/views";
 import type { Order, OrderItem, Seed } from "@/lib/types";
+
+type View = "seed" | "order";
 
 export default function PackingPage() {
   const { state } = useData();
   const [stewardFilter, setStewardFilter] = useState("");
+  const [view, setView] = useState<View>("seed");
   if (!state) return <Loading />;
   const db = state.snapshot;
   const seeds = new Map(db.seeds.map((s) => [s.id, s]));
@@ -25,29 +29,60 @@ export default function PackingPage() {
     <>
       <PageHeader
         title="Packing Queue"
-        subtitle="For Youth Seed Stewards: pack each approved order, tick off the items, then mark it ready."
+        subtitle={
+          view === "seed"
+            ? "Pack one seed at a time: each card shows the total packets needed across all approved orders, then how many go to each order."
+            : "Pack one order at a time: tick off its items, then mark it ready."
+        }
         actions={
-          <div className="relative">
-            <UserRound size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input className={`${inputCls} w-56 pl-9`} placeholder="Show my orders (name)…" value={stewardFilter} onChange={(e) => setStewardFilter(e.target.value)} aria-label="Filter by Seed Steward" />
-          </div>
+          <>
+            <div className="flex rounded-xl border border-sage-200 bg-white p-0.5" role="tablist" aria-label="Packing view">
+              {(["seed", "order"] as View[]).map((v) => (
+                <button
+                  key={v}
+                  role="tab"
+                  aria-selected={view === v}
+                  onClick={() => setView(v)}
+                  className={clsx(
+                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium",
+                    view === v ? "bg-forest-600 text-white" : "text-forest-800 hover:bg-sage-50",
+                  )}
+                >
+                  {v === "seed" ? <Sprout size={15} /> : <ClipboardList size={15} />} {v === "seed" ? "By seed" : "By order"}
+                </button>
+              ))}
+            </div>
+            {view === "seed" && toPack.length > 0 && (
+              <LinkButton href="/packing/pick-list">
+                <Printer size={16} /> Print pick list
+              </LinkButton>
+            )}
+            <div className="relative">
+              <UserRound size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input className={`${inputCls} w-52 pl-9`} placeholder="Show my orders (name)…" value={stewardFilter} onChange={(e) => setStewardFilter(e.target.value)} aria-label="Filter by Seed Steward" />
+            </div>
+          </>
         }
       />
 
-      <section>
-        <h2 className="mb-3 flex items-center gap-2 font-semibold text-forest-900">
-          <PackageOpen size={18} /> To pack <span className="text-sm font-normal text-muted">({toPack.length})</span>
-        </h2>
-        {toPack.length === 0 ? (
-          <EmptyState title="Nothing to pack right now">Approved orders show up here.</EmptyState>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {toPack.map((o) => (
-              <PackCard key={`${o.id}-${o.updated_at}`} order={o} items={items(o)} seeds={seeds} />
-            ))}
-          </div>
-        )}
-      </section>
+      {view === "seed" ? (
+        <SeedView orders={toPack} />
+      ) : (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 font-semibold text-forest-900">
+            <PackageOpen size={18} /> To pack <span className="text-sm font-normal text-muted">({toPack.length})</span>
+          </h2>
+          {toPack.length === 0 ? (
+            <EmptyState title="Nothing to pack right now">Approved orders show up here.</EmptyState>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {toPack.map((o) => (
+                <PackCard key={`${o.id}-${o.updated_at}`} order={o} items={items(o)} seeds={seeds} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="mt-8">
         <h2 className="mb-3 flex items-center gap-2 font-semibold text-forest-900">
@@ -63,6 +98,161 @@ export default function PackingPage() {
           </div>
         )}
       </section>
+    </>
+  );
+}
+
+/** Seed-first packing: totals per seed across every approved order. */
+function SeedView({ orders }: { orders: Order[] }) {
+  const { state, mutate, toast } = useData();
+  const [busy, setBusy] = useState(false);
+  const db = state!.snapshot;
+  const staff = state!.staff;
+  const groups = seedPickList(db, orders);
+
+  async function pack(packs: { order: Order; item: OrderItem; qty: number }[], msg?: string) {
+    setBusy(true);
+    try {
+      // Group by order: one validated request per order.
+      const perOrder = new Map<string, { item_id: string; packed_quantity: number }[]>();
+      for (const p of packs) perOrder.set(p.order.id, [...(perOrder.get(p.order.id) ?? []), { item_id: p.item.id, packed_quantity: p.qty }]);
+      for (const [orderId, list] of perOrder) await mutate(`/api/orders/${orderId}`, { action: "pack", packs: list });
+      if (msg) toast(msg);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function ready(o: Order) {
+    setBusy(true);
+    try {
+      await mutate(`/api/orders/${o.id}`, { action: "ready" });
+      toast(`#${o.order_number} is ready for delivery`);
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (orders.length === 0)
+    return <EmptyState title="Nothing to pack right now">Approved orders show up here, grouped by seed.</EmptyState>;
+
+  const totalPackets = groups.reduce((a, g) => a + g.total, 0);
+  const packedPackets = groups.reduce((a, g) => a + g.packed, 0);
+  const fullyPacked = orders.filter((o) =>
+    db.order_items.filter((i) => i.order_id === o.id && (i.approved_quantity ?? 0) > 0).every((i) => i.packed_quantity === i.approved_quantity),
+  );
+
+  return (
+    <>
+      <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm">
+        <span>
+          <strong className="text-forest-900">{groups.length}</strong> seed varieties ·{" "}
+          <strong className="text-forest-900">{totalPackets}</strong> packets · <strong className="text-forest-900">{orders.length}</strong> orders
+        </span>
+        <span className="flex items-center gap-3">
+          <span className="h-2 w-40 rounded-full bg-sage-100">
+            <span className="block h-2 rounded-full bg-forest-500" style={{ width: `${totalPackets ? (packedPackets / totalPackets) * 100 : 0}%` }} />
+          </span>
+          <span className="tabular-nums text-muted">
+            {packedPackets}/{totalPackets} packed
+          </span>
+        </span>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {groups.map((g) => {
+          const done = g.packed === g.total;
+          return (
+            <Card key={g.seed.id} className={clsx(done && "border-forest-200 bg-forest-50/30")}>
+              <div className="flex items-start justify-between gap-3 border-b border-sage-100 px-5 py-4">
+                <div>
+                  <p className="font-semibold text-forest-900">{seedLabel(g.seed)}</p>
+                  <p className="text-xs text-muted">
+                    {g.seed.storage_location ? `${g.seed.storage_location} · ` : ""}
+                    {g.lines.length} order{g.lines.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-semibold leading-none tabular-nums text-forest-900">{g.total}</p>
+                  <p className="mt-1 text-xs text-muted">{g.seed.unit} to pack</p>
+                </div>
+              </div>
+              <ul className="divide-y divide-sage-100">
+                {g.lines.map(({ order, item }) => {
+                  const packed = item.packed_quantity === item.approved_quantity;
+                  return (
+                    <li key={item.id}>
+                      <button
+                        className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm hover:bg-sage-50 disabled:cursor-default disabled:hover:bg-transparent"
+                        disabled={!staff || busy}
+                        onClick={() => pack([{ order, item, qty: packed ? 0 : item.approved_quantity! }])}
+                        aria-pressed={packed}
+                      >
+                        {packed ? <CheckCircle2 size={20} className="shrink-0 text-forest-600" /> : <Circle size={20} className="shrink-0 text-stone-300" />}
+                        <span className={clsx("flex-1", packed && "text-muted line-through decoration-forest-300")}>
+                          #{order.order_number} · {order.organization_name}
+                          {order.assigned_steward && <span className="text-xs text-muted"> ({order.assigned_steward})</span>}
+                        </span>
+                        <span className="font-semibold tabular-nums">× {item.approved_quantity}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="flex items-center justify-between gap-3 border-t border-sage-100 px-5 py-3">
+                <span className="text-xs tabular-nums text-muted">
+                  {g.packed} / {g.total} packed
+                </span>
+                {staff && (
+                  <Button
+                    size="sm"
+                    variant={done ? "secondary" : "primary"}
+                    disabled={busy || done}
+                    onClick={() =>
+                      pack(
+                        g.lines.filter((l) => l.item.packed_quantity !== l.item.approved_quantity).map((l) => ({ ...l, qty: l.item.approved_quantity! })),
+                        `All ${seedLabel(g.seed)} packed`,
+                      )
+                    }
+                  >
+                    <CheckCircle2 size={14} /> {done ? "All packed" : `Pack all ${g.total}`}
+                  </Button>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {staff && fullyPacked.length > 0 && (
+        <Card className="mt-4 border-forest-200">
+          <div className="border-b border-sage-100 px-5 py-3">
+            <p className="font-semibold text-forest-900">Orders with everything packed</p>
+            <p className="text-xs text-muted">Bag them up and mark them ready for delivery.</p>
+          </div>
+          <ul className="divide-y divide-sage-100">
+            {fullyPacked.map((o) => (
+              <li key={o.id} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
+                <Link href={`/requests/${o.id}`} className="hover:underline">
+                  <span className="font-medium text-forest-900">#{o.order_number}</span> {o.organization_name}
+                </Link>
+                <span className="flex gap-2">
+                  <LinkButton size="sm" href={`/packing/${o.id}/print`}>
+                    <Printer size={14} /> Slip
+                  </LinkButton>
+                  <Button size="sm" variant="primary" onClick={() => ready(o)} disabled={busy}>
+                    <CheckCircle2 size={14} /> Mark ready
+                  </Button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </>
   );
 }
