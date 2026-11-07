@@ -211,4 +211,13 @@ describe("D1 store", () => {
     await store.resetDemo();
     expect((await store.snapshot()).notifications.filter((n) => n.subject === "s")).toHaveLength(0);
   });
+
+  it("version changes on writes and stays put on no-ops", async () => {
+    const before = await store.version();
+    const kale = (await store.snapshot()).seeds.find((s) => s.name === "Kale")!;
+    await store.setStockCount(kale.id, kale.physical_quantity, null);
+    expect(await store.version()).toBe(before);
+    await store.setStockCount(kale.id, (kale.physical_quantity ?? 0) + 1, "recount");
+    expect(await store.version()).toBe(before + 1);
+  });
 });

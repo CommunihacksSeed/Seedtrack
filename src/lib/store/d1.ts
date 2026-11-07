@@ -197,6 +197,10 @@ export function createD1Store(db: D1Database): SeedFlowStore {
   return {
     mode: "d1",
     transact,
+    async version() {
+      const row = await db.prepare("SELECT version FROM store_meta WHERE id = 1").first<{ version: number }>();
+      return row!.version;
+    },
     async snapshot() {
       const [seeds, orders, items, moves, history, meta, bundles, notifications, settings] = await db.batch([
         db.prepare("SELECT * FROM seeds ORDER BY name"),

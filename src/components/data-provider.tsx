@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { DataSnapshot } from "@/lib/types";
 
 export interface AppState {
@@ -23,6 +23,7 @@ interface Ctx {
 }
 
 const DataContext = createContext<Ctx | null>(null);
+const POLL_MS = 10_000;
 const HEADERS: HeadersInit = { "content-type": "application/json" };
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [updateReady, setUpdateReady] = useState(false);
+  const seen = useRef<{ data?: number; build?: string }>({});
 
   const toast = useCallback((text: string, kind: Toast["kind"] = "success") => {
     const id = Date.now() + Math.random();
@@ -71,11 +74,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [refresh]);
 
+  // Keep open pages current: another person's change reloads the data, and a new
+  // deployment offers a reload rather than forcing one over a half-filled form.
+  useEffect(() => {
+    const check = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch("/api/version", { cache: "no-store" });
+        if (!res.ok) return;
+        const next = (await res.json()) as { data: number; build: string };
+        const { data, build } = seen.current;
+        seen.current = next;
+        if (data !== undefined && data !== next.data) await refresh();
+        if (build !== undefined && build !== next.build) setUpdateReady(true);
+      } catch {
+        /* offline; the next check will catch up */
+      }
+    };
+    check();
+    const timer = setInterval(check, POLL_MS);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [refresh]);
+
   const value = useMemo(() => ({ state, error, loading, refresh, mutate, toast }), [state, error, loading, refresh, mutate, toast]);
 
   return (
     <DataContext.Provider value={value}>
       {children}
+      {updateReady && (
+        <div role="status" className="no-print fixed inset-x-4 top-4 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-forest-200 bg-white px-4 py-3 text-sm shadow-lg">
+          <span>A new version of SeedFlow is available.</span>
+          <button type="button" className="font-medium text-forest-700 underline" onClick={() => location.reload()}>
+            Reload
+          </button>
+        </div>
+      )}
       <div className="no-print pointer-events-none fixed bottom-4 right-4 z-50 flex max-w-sm flex-col gap-2" aria-live="polite">
         {toasts.map((t) => (
           <div
