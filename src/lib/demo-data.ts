@@ -1,6 +1,9 @@
 /**
  * DEMO DATA — every quantity, school, person, email and address below is
- * FICTIONAL. YFS has not provided real inventory counts. The real form PDFs
+ * FICTIONAL. YFS has not provided real inventory counts. Seed names and
+ * varieties come from YFS's real 2026 catalogue (see seed-catalogue.ts); the
+ * stock numbers on the first few are made up for the demo, the rest are
+ * "not counted". The real form PDFs
  * were used only to understand field structure; no real requester details are
  * copied here.
  */
@@ -17,6 +20,7 @@ import {
   updateSettings,
 } from "./domain";
 import type { DataSnapshot, SeedInput } from "./types";
+import { SEED_CATALOGUE_2026 } from "./seed-catalogue";
 
 function daysAgo(n: number, hour = 10) {
   const d = new Date();
@@ -26,18 +30,18 @@ function daysAgo(n: number, hour = 10) {
 }
 
 const SEEDS: SeedInput[] = [
-  { name: "Tomato", variety: "Crimson Giant", category: "Fruits / Fruiting Vegetables", physical_quantity: 50, low_stock_threshold: 10, storage_location: "Shelf A1" },
-  { name: "Tomato", variety: "Blueberry", category: "Fruits / Fruiting Vegetables", physical_quantity: 25, low_stock_threshold: 8, storage_location: "Shelf A1" },
-  { name: "Kale", category: "Greens", physical_quantity: 45, low_stock_threshold: 10, storage_location: "Shelf B2" },
-  { name: "Spinach", category: "Greens", physical_quantity: 35, low_stock_threshold: 10, storage_location: "Shelf B2" },
-  { name: "Cucumber", category: "Fruits / Fruiting Vegetables", physical_quantity: 30, low_stock_threshold: 8, storage_location: "Shelf A2" },
-  { name: "Radish", category: "Root Vegetables", physical_quantity: 65, low_stock_threshold: 15, storage_location: "Shelf C1" },
+  { name: "Tomato", variety: "Crimson Giant", category: "Fruits / Fruiting Vegetables", description: "Large tomato", physical_quantity: 50, low_stock_threshold: 10, storage_location: "Shelf A1" },
+  { name: "Tomato", variety: "Blue Berries", category: "Fruits / Fruiting Vegetables", description: "Cherry tomato", physical_quantity: 25, low_stock_threshold: 8, storage_location: "Shelf A1" },
+  { name: "Kale", variety: "Red Russian", category: "Greens", physical_quantity: 45, low_stock_threshold: 10, storage_location: "Shelf B2" },
+  { name: "Spinach", variety: "Butterflay", category: "Greens", physical_quantity: 35, low_stock_threshold: 10, storage_location: "Shelf B2" },
+  { name: "Cucumber", variety: "Marketmore", category: "Fruits / Fruiting Vegetables", physical_quantity: 30, low_stock_threshold: 8, storage_location: "Shelf A2" },
+  { name: "Radish", variety: "French Breakfast", category: "Root Vegetables", physical_quantity: 65, low_stock_threshold: 15, storage_location: "Shelf C1" },
   { name: "Bok Choy", category: "Greens", physical_quantity: 26, low_stock_threshold: 8, storage_location: "Shelf B3" },
-  { name: "Pumpkin", category: "Fruits / Fruiting Vegetables", physical_quantity: 19, low_stock_threshold: 5, storage_location: "Shelf A3" },
-  { name: "Carrot", variety: "Scarlet Nantes", category: "Root Vegetables", physical_quantity: 53, low_stock_threshold: 10, storage_location: "Shelf C1" },
-  { name: "Bean", variety: "Scarlet Runner", category: "Legumes", physical_quantity: 6, low_stock_threshold: 10, storage_location: "Shelf D1" },
-  { name: "Sunflower", variety: "Mammoth", category: "Flowers", physical_quantity: 0, low_stock_threshold: 5, storage_location: "Shelf E1" },
-  { name: "Basil", category: "Herbs", physical_quantity: null, low_stock_threshold: 5, description: "Not counted yet — stock count needed before allocating." },
+  { name: "Pumpkin", variety: "Howden Field", category: "Fruits / Fruiting Vegetables", physical_quantity: 19, low_stock_threshold: 5, storage_location: "Shelf A3" },
+  { name: "Carrot", variety: "Nantes Coreless", category: "Root Vegetables", physical_quantity: 53, low_stock_threshold: 10, storage_location: "Shelf C1" },
+  { name: "Bean", variety: "Royal Burgundy", category: "Legumes", physical_quantity: 6, low_stock_threshold: 10, storage_location: "Shelf D1" },
+  { name: "Sunflower", variety: "Large Grey Striped", category: "Flowers", physical_quantity: 0, low_stock_threshold: 5, storage_location: "Shelf E1" },
+  { name: "Basil", variety: "Genovese", category: "Herbs", physical_quantity: null, low_stock_threshold: 5, description: "Not counted yet — stock count needed before allocating." },
 ];
 
 export function buildDemoSnapshot(): DataSnapshot {
@@ -51,24 +55,24 @@ export function buildDemoSnapshot(): DataSnapshot {
     name: "Spring",
     description: "Cool-season greens and roots (demo contents)",
     items: [
-      { seed_id: seedId("Spinach"), quantity: 2 },
-      { seed_id: seedId("Kale"), quantity: 2 },
-      { seed_id: seedId("Radish"), quantity: 2 },
+      { seed_id: seedId("Spinach", "Butterflay"), quantity: 2 },
+      { seed_id: seedId("Kale", "Red Russian"), quantity: 2 },
+      { seed_id: seedId("Radish", "French Breakfast"), quantity: 2 },
     ],
   }, daysAgo(30, 9));
   saveBundle(db, null, {
     name: "Fall Harvest",
     description: "Seeds for a fall harvest (demo contents)",
     items: [
-      { seed_id: seedId("Carrot", "Scarlet Nantes"), quantity: 2 },
-      { seed_id: seedId("Pumpkin"), quantity: 1 },
-      { seed_id: seedId("Kale"), quantity: 1 },
+      { seed_id: seedId("Carrot", "Nantes Coreless"), quantity: 2 },
+      { seed_id: seedId("Pumpkin", "Howden Field"), quantity: 1 },
+      { seed_id: seedId("Kale", "Red Russian"), quantity: 1 },
     ],
   }, daysAgo(30, 9));
   saveBundle(db, null, {
     name: "Herbs",
     description: "Kitchen herbs (demo contents)",
-    items: [{ seed_id: seedId("Basil"), quantity: 2 }],
+    items: [{ seed_id: seedId("Basil", "Genovese"), quantity: 2 }],
   }, daysAgo(30, 9));
 
   updateSettings(db, {
@@ -128,7 +132,7 @@ export function buildDemoSnapshot(): DataSnapshot {
       source: "csv",
       submitted_at: daysAgo(16),
       items: [
-        { requested_seed_name: "Carrot — Scarlet Nantes", requested_quantity: 8 },
+        { requested_seed_name: "Carrot — Nantes Coreless", requested_quantity: 8 },
         { requested_seed_name: "Kale", requested_quantity: 5 },
       ],
     },
@@ -228,6 +232,14 @@ export function buildDemoSnapshot(): DataSnapshot {
     daysAgo(1),
   ).order;
   place(d.id, "drop-off", 45.347, -75.76);
+
+  // The rest of the real YFS 2026 seed catalogue, added after the demo orders so
+  // their seed names still match uniquely. Real varieties, but not counted yet.
+  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+  for (const s of SEED_CATALOGUE_2026) {
+    if (db.seeds.some((x) => norm(x.name) === norm(s.name) && norm(x.variety) === norm(s.variety))) continue;
+    createSeed(db, s, daysAgo(30, 9));
+  }
 
   return db;
 }

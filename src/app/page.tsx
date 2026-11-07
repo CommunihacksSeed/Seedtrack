@@ -131,7 +131,7 @@ export default function DashboardPage() {
                 action={<HelpCircle size={18} className="text-amber-600" />}
               />
               <ul className="divide-y divide-sage-100">
-                {view.uncounted.map((s) => (
+                {view.uncounted.slice(0, 5).map((s) => (
                   <li key={s.id} className="flex items-center justify-between px-5 py-2.5 text-sm">
                     <span>{seedLabel(s)}</span>
                     <Link href="/inventory" className="text-xs font-medium text-forest-700 hover:underline">
@@ -139,6 +139,13 @@ export default function DashboardPage() {
                     </Link>
                   </li>
                 ))}
+                {view.uncounted.length > 5 && (
+                  <li className="px-5 py-2.5 text-sm">
+                    <Link href="/inventory" className="text-xs font-medium text-forest-700 hover:underline">
+                      + {view.uncounted.length - 5} more not counted — see Seed Inventory →
+                    </Link>
+                  </li>
+                )}
               </ul>
             </Card>
           )}
