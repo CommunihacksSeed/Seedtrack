@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { BarChart3, ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Truck, Warehouse, X } from "lucide-react";
+import { BarChart3, ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X } from "lucide-react";
 import { useData } from "./data-provider";
 import { ErrorState } from "./ui";
 
@@ -13,7 +13,6 @@ const NAV = [
   { href: "/inventory", label: "Seed Inventory", icon: Warehouse },
   { href: "/requests", label: "Seed Requests", icon: ClipboardList },
   { href: "/packing", label: "Packing Queue", icon: Package },
-  { href: "/deliveries", label: "Deliveries", icon: Truck },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -36,7 +35,6 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const counts: Record<string, { n: number; label: string }> = {
     "/requests": { n: orders.filter((o) => o.status === "Received" || o.status === "Under Review").length, label: "to review" },
     "/packing": { n: orders.filter((o) => o.status === "Approved" || o.status === "Preparing").length, label: "to pack" },
-    "/deliveries": { n: orders.filter((o) => o.status === "Ready").length, label: "ready" },
   };
   return (
     <nav aria-label="Main" className="space-y-0.5">

@@ -9,7 +9,7 @@ import { useData } from "@/components/data-provider";
 import { ActionMenu, Badge, Button, EmptyState, LinkButton, Modal, StatusBadge, fmtDate, fmtNum, inputCls, type MenuItem } from "@/components/ui";
 import { availableQuantity, seedLabel } from "@/lib/domain";
 import { suggestQuantity } from "@/lib/allocation";
-import { DELIVERY_LABELS, DELIVERY_METHODS, REVIEWABLE_STATUSES, RESERVING_STATUSES, type Order, type OrderItem, type Seed } from "@/lib/types";
+import { REVIEWABLE_STATUSES, RESERVING_STATUSES, type Order, type OrderItem, type Seed } from "@/lib/types";
 
 type Row = { item: OrderItem; seedId: string; qty: string; unavailable: boolean; suggested: boolean };
 
@@ -377,27 +377,6 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
                 </span>
               </Detail>
               <Detail label="Bundles">{order.requested_bundles.length ? order.requested_bundles.join(", ") : "—"}</Detail>
-              <Detail label="Delivery">
-                {open ? (
-                  <select
-                    className={`${inputCls} h-8`}
-                    value={order.delivery_method ?? ""}
-                    onChange={(e) => act({ action: "set_delivery", delivery_method: e.target.value || null }, "Delivery method saved")}
-                    aria-label="Delivery method"
-                  >
-                    <option value="">Not decided</option>
-                    {DELIVERY_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {DELIVERY_LABELS[m]}
-                      </option>
-                    ))}
-                  </select>
-                ) : order.delivery_method ? (
-                  DELIVERY_LABELS[order.delivery_method]
-                ) : (
-                  "—"
-                )}
-              </Detail>
               <Detail label="Garden support">{order.garden_support === null ? "—" : order.garden_support ? "Requested" : "No"}</Detail>
               {order.special_requests && <Detail label="Special requests">{order.special_requests}</Detail>}
               <Detail label="Source">

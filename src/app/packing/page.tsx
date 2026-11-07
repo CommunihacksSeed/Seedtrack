@@ -79,13 +79,6 @@ export default function PackingPage() {
       <section className="mt-8">
         <SectionTitle
           count={ready.length}
-          action={
-            ready.length > 0 && (
-              <LinkButton href="/deliveries" size="sm">
-                <Truck /> Plan deliveries
-              </LinkButton>
-            )
-          }
         >
           <Truck size={16} className="text-forest-600" aria-hidden /> Ready for delivery
         </SectionTitle>

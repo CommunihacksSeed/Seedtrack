@@ -94,9 +94,9 @@ export default function DashboardPage() {
       {
         key: "deliver",
         count: ready,
-        title: ready === 1 ? "1 order ready to deliver" : `${ready} orders ready to deliver`,
-        href: "/deliveries",
-        cta: "Plan deliveries",
+        title: ready === 1 ? "1 order packed and ready" : `${ready} orders packed and ready`,
+        href: "/packing",
+        cta: "Mark delivered",
         icon: <Truck />,
       },
       {

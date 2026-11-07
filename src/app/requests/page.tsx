@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import { CheckCircle2, ClipboardList, Download, Plus, Upload } from "lucide-react";
+import { CheckCircle2, ClipboardList, Download, List, Plus, Sprout, Upload } from "lucide-react";
 import { useData } from "@/components/data-provider";
 import { downloadExport } from "@/components/download";
 import { useQueryState } from "@/components/use-query-state";
 import { RequestReview } from "@/components/request-review";
+import { RequestsBySeed } from "@/components/requests-by-seed";
+import { useRouter } from "next/navigation";
 import { Badge, Button, EmptyState, ErrorState, LinkButton, Loading, PageHeader, SearchInput, SegmentedTabs, StatusBadge, Toolbar, fmtDate, inputCls } from "@/components/ui";
 import type { Order, OrderStatus } from "@/lib/types";
 import { REQUEST_VIEW_STATUSES, type RequestView } from "@/lib/views";
@@ -42,6 +44,10 @@ function RequestsPageContent() {
   const [rawView, setView] = useQueryState("view", "open");
   const view = (rawView in VIEW_STATUSES ? rawView : "open") as View;
   const [selectedId, setSelectedId] = useQueryState("id");
+  // Default: requests grouped by seed (category → seed → requests). "request" shows one row per request.
+  const [rawGroup, setGroup] = useQueryState("group", "seed");
+  const group = rawGroup === "request" ? "request" : "seed";
+  const router = useRouter();
   const [status, setStatus] = useState<"any" | OrderStatus>("any");
   const [q, setQ] = useState("");
   const wide = useIsWide();
@@ -87,7 +93,11 @@ function RequestsPageContent() {
   const header = (
     <PageHeader
       title="Seed Requests"
-      subtitle="Review requests against inventory, then approve to reserve stock."
+      subtitle={
+        group === "seed"
+          ? "Requested seeds by category: how many packets are asked for and by which requests."
+          : "Review requests against inventory, then approve to reserve stock."
+      }
       actions={
         <>
           <Button variant="ghost" onClick={() => downloadExport("orders").catch((e) => toast(e.message, "error"))}>
@@ -157,13 +167,28 @@ function RequestsPageContent() {
       {header}
       <Toolbar>
         <SegmentedTabs
+          label="Group requests"
+          value={group}
+          onChange={(g) => setGroup(g)}
+          options={[
+            { value: "seed", label: "By seed", icon: <Sprout /> },
+            { value: "request", label: "By request", icon: <List /> },
+          ]}
+        />
+        <SegmentedTabs
           label="Request view"
           value={view}
           onChange={changeView}
           options={(Object.keys(VIEW_STATUSES) as View[]).map((v) => ({ value: v, label: VIEW_LABEL[v], count: viewCount(v), attention: v === "open" }))}
         />
         <div className="flex flex-1 flex-col gap-2 sm:flex-row md:justify-end">
-          <SearchInput className="sm:w-72" value={q} onChange={setQ} placeholder="Order #, school, requester or entry ID" label="Search requests" />
+          <SearchInput
+            className="sm:w-72"
+            value={q}
+            onChange={setQ}
+            placeholder={group === "seed" ? "Seed, category, order # or school" : "Order #, school, requester or entry ID"}
+            label="Search requests"
+          />
           <select className={`${inputCls} sm:w-52`} value={status} onChange={(e) => setStatus(e.target.value as typeof status)} aria-label="Filter by status">
             <option value="any">Any status</option>
             {VIEW_STATUSES[view].map((s) => (
@@ -175,7 +200,14 @@ function RequestsPageContent() {
         </div>
       </Toolbar>
 
-      {rows.length === 0 ? (
+      {group === "seed" ? (
+        <RequestsBySeed
+          db={state.snapshot}
+          statuses={status === "any" ? VIEW_STATUSES[view] : [status]}
+          query={q}
+          onOpen={(id) => router.push(`/requests/${id}`)}
+        />
+      ) : rows.length === 0 ? (
         empty
       ) : (
         <div className={clsx(wide && "grid grid-cols-[22rem_minmax(0,1fr)] items-start gap-4")}>

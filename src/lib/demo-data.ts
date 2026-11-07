@@ -50,29 +50,44 @@ export function buildDemoSnapshot(): DataSnapshot {
   const seedId = (name: string, variety: string | null = null) =>
     db.seeds.find((s) => s.name === name && s.variety === variety)!.id;
 
-  // Fictional bundle contents (YFS hasn't shared real ones yet).
+  // Bundles as listed on the YFS Seed Request Form 2026. Which variety and how
+  // many packets go in each bundle are demo choices (1 packet per seed).
+  const catalogueId = (name: string, variety: string | null = null) => {
+    let s = db.seeds.find((x) => x.name === name && x.variety === variety);
+    if (!s) s = createSeed(db, { ...SEED_CATALOGUE_2026.find((c) => c.name === name && (c.variety ?? null) === variety)!, physical_quantity: null }, daysAgo(30, 9));
+    return s.id;
+  };
   saveBundle(db, null, {
-    name: "Spring",
-    description: "Cool-season greens and roots (demo contents)",
+    name: "Spring Bundle",
+    description: "radish, bok choy, spinach, bunching onions",
     items: [
-      { seed_id: seedId("Spinach", "Butterflay"), quantity: 2 },
-      { seed_id: seedId("Kale", "Red Russian"), quantity: 2 },
-      { seed_id: seedId("Radish", "French Breakfast"), quantity: 2 },
+      { seed_id: seedId("Radish", "French Breakfast"), quantity: 1 },
+      { seed_id: seedId("Bok Choy"), quantity: 1 },
+      { seed_id: seedId("Spinach", "Butterflay"), quantity: 1 },
+      { seed_id: catalogueId("Onion", "White Gem Hybrid"), quantity: 1 },
     ],
   }, daysAgo(30, 9));
   saveBundle(db, null, {
     name: "Fall Harvest",
-    description: "Seeds for a fall harvest (demo contents)",
+    description: "pumpkin, squash, kale, beets, root parsley",
     items: [
-      { seed_id: seedId("Carrot", "Nantes Coreless"), quantity: 2 },
       { seed_id: seedId("Pumpkin", "Howden Field"), quantity: 1 },
+      { seed_id: catalogueId("Squash", "Delicata"), quantity: 1 },
       { seed_id: seedId("Kale", "Red Russian"), quantity: 1 },
+      { seed_id: catalogueId("Beet", "Cylindra Formanova"), quantity: 1 },
+      { seed_id: catalogueId("Root Parsley", "Hamburg"), quantity: 1 },
     ],
   }, daysAgo(30, 9));
   saveBundle(db, null, {
-    name: "Herbs",
-    description: "Kitchen herbs (demo contents)",
-    items: [{ seed_id: seedId("Basil", "Genovese"), quantity: 2 }],
+    name: "Herbs/Edible Flowers",
+    description: "basil, chives, borage, nasturtium, marigold",
+    items: [
+      { seed_id: seedId("Basil", "Genovese"), quantity: 1 },
+      { seed_id: catalogueId("Chives"), quantity: 1 },
+      { seed_id: catalogueId("Borage"), quantity: 1 },
+      { seed_id: catalogueId("Nasturtium (Climbing)"), quantity: 1 },
+      { seed_id: catalogueId("Marigold"), quantity: 1 },
+    ],
   }, daysAgo(30, 9));
 
   updateSettings(db, {
@@ -171,7 +186,7 @@ export function buildDemoSnapshot(): DataSnapshot {
       school_use: true,
       mailing_address: "400 Example Street, Ottawa, ON",
       student_count: 28,
-      requested_bundles: ["Spring"],
+      requested_bundles: ["Spring Bundle"],
       special_requests: "Please include planting guides if available.",
       garden_support: false,
       source: "manual",
@@ -216,7 +231,7 @@ export function buildDemoSnapshot(): DataSnapshot {
       school_use: true,
       mailing_address: "600 Demo Crescent, Ottawa, ON",
       student_count: 40,
-      requested_bundles: ["Spring", "Herbs"],
+      requested_bundles: ["Spring Bundle", "Herbs/Edible Flowers"],
       special_requests: "Grade 4 class garden. Happy with any tomato variety.",
       garden_support: true,
       seed_donation_interest: false,

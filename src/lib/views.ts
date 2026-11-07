@@ -121,3 +121,53 @@ export const INVENTORY_VIEW_TEST: Record<InventoryView, (s: Seed) => boolean> = 
   low: (s) => ["Low Stock", "Out of Stock"].includes(stockStatus(s)),
   allocatable: (s) => (availableQuantity(s) ?? 0) > 0,
 };
+
+/**
+ * Seed Requests "By seed" view: every requested seed across the given orders,
+ * grouped by crop category, with the packets asked for and which requests
+ * asked. Items not yet matched to inventory are collected separately.
+ */
+export interface SeedDemandLine {
+  order: Order;
+  item: DataSnapshot["order_items"][number];
+}
+export interface SeedDemand {
+  seed: Seed;
+  /** Sum of the quantities requesters gave. */
+  requested: number;
+  /** Requests that didn't say how many packets. */
+  unspecified: number;
+  lines: SeedDemandLine[];
+}
+export function requestsBySeed(db: DataSnapshot, statuses: OrderStatus[]) {
+  const orders = new Map(db.orders.filter((o) => statuses.includes(o.status)).map((o) => [o.id, o]));
+  const seeds = seedMap(db);
+  const bySeed = new Map<string, SeedDemand>();
+  const unmatched: SeedDemandLine[] = [];
+  for (const item of db.order_items) {
+    const order = orders.get(item.order_id);
+    if (!order) continue;
+    const seed = item.seed_id ? seeds.get(item.seed_id) : undefined;
+    if (!seed) {
+      unmatched.push({ order, item });
+      continue;
+    }
+    const d = bySeed.get(seed.id) ?? { seed, requested: 0, unspecified: 0, lines: [] };
+    if (item.requested_quantity === null) d.unspecified++;
+    else d.requested += item.requested_quantity;
+    d.lines.push({ order, item });
+    bySeed.set(seed.id, d);
+  }
+  const categories = new Map<string, SeedDemand[]>();
+  for (const d of bySeed.values()) {
+    d.lines.sort((a, b) => a.order.order_number - b.order.order_number);
+    categories.set(d.seed.category, [...(categories.get(d.seed.category) ?? []), d]);
+  }
+  const groups = [...categories.entries()]
+    .map(([category, seedsInCat]) => ({
+      category,
+      seeds: seedsInCat.sort((a, b) => b.lines.length - a.lines.length || seedLabel(a.seed).localeCompare(seedLabel(b.seed))),
+    }))
+    .sort((a, b) => a.category.localeCompare(b.category));
+  return { groups, unmatched };
+}

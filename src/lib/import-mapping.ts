@@ -25,15 +25,15 @@ export const REQUEST_FIELDS: { key: RequestField; label: string; required?: bool
   { key: "external_entry_id", label: "Cognito Entry ID", guesses: ["entry id", "entry number", "id", "entry", "number"] },
   { key: "requester_name", label: "Requester name", required: true, guesses: ["your name", "name", "requester", "contact name", "full name"] },
   { key: "requester_email", label: "Email", guesses: ["email", "e-mail", "email address"] },
-  { key: "organization_name", label: "School / organization", required: true, guesses: ["school", "organization", "organisation", "school name", "school or organization"] },
-  { key: "school_use", label: "For school use? (yes/no)", guesses: ["school use", "is this for school", "for a school", "school use?"] },
+  { key: "organization_name", label: "School / organization", required: true, guesses: ["what school are these seeds for", "school", "organization", "organisation", "school name", "school or organization"] },
+  { key: "school_use", label: "For school use? (yes/no)", guesses: ["are these seeds for school use", "school use", "is this for school", "for a school", "school use?"] },
   { key: "mailing_address", label: "Mailing address", guesses: ["mailing address", "address", "shipping address"] },
   { key: "requested_bundles", label: "Bundles (list)", guesses: ["bundles", "bundle", "seed bundles"] },
-  { key: "requested_seeds", label: "Seed types (list)", guesses: ["seed types", "seeds", "seed varieties", "varieties", "requested seeds"] },
-  { key: "special_requests", label: "Special requests", guesses: ["special requests", "notes", "comments", "special instructions"] },
-  { key: "student_count", label: "Number of students", guesses: ["number of students", "students", "student count", "number of youth", "participants"] },
-  { key: "garden_support", label: "Wants garden support? (yes/no)", guesses: ["garden support", "gardening support", "support"] },
-  { key: "seed_donation_interest", label: "Interested in donating seeds? (yes/no)", guesses: ["seed donation", "donate seeds", "donation"] },
+  { key: "requested_seeds", label: "Seed types (list)", guesses: ["which types of seeds would you like to request", "seed types", "seeds", "seed varieties", "varieties", "requested seeds"] },
+  { key: "special_requests", label: "Special requests", guesses: ["are there any special requests you have concerning your seed order", "special requests", "notes", "comments", "special instructions"] },
+  { key: "student_count", label: "Number of students", guesses: ["how many students/youth will you be growing with", "number of students", "students", "student count", "number of youth", "participants"] },
+  { key: "garden_support", label: "Wants garden support? (yes/no)", guesses: ["would you like to have a yfs staff member offer on-site garden support", "garden support", "gardening support", "support"] },
+  { key: "seed_donation_interest", label: "Interested in donating seeds? (yes/no)", guesses: ["are you interested in helping the yfs youth seed library", "seed donation", "donate seeds", "donation"] },
   { key: "submitted_at", label: "Submitted date", guesses: ["date submitted", "submitted", "timestamp", "entry date", "date created", "date"] },
 ];
 
@@ -81,7 +81,7 @@ export function parseBool(v: unknown): boolean | null {
   if (typeof v === "boolean") return v;
   if (v === null || v === undefined) return null;
   const s = String(v).trim().toLowerCase();
-  if (["yes", "y", "true", "1", "oui"].includes(s)) return true;
+  if (["yes", "y", "true", "1", "oui"].includes(s) || /^yes\b/.test(s)) return true;
   if (["no", "n", "false", "0", "non"].includes(s)) return false;
   return null;
 }
