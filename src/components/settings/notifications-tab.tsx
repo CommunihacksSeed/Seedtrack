@@ -57,7 +57,7 @@ export function NotificationsTab() {
 
           <div className={s.notifications.enabled ? "" : "pointer-events-none opacity-50"}>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">Send a message when…</p>
-            <div className="space-y-3 rounded-xl border border-sage-200 p-3">
+            <div className="space-y-3 rounded-md border border-sage-200 p-3">
               {NOTIFICATION_EVENTS.map((e: NotificationEvent) => (
                 <Switch
                   key={e}
@@ -86,7 +86,7 @@ export function NotificationsTab() {
             </Button>
           </form>
 
-          <div className="rounded-xl bg-sage-50 p-3 text-xs text-muted">
+          <div className="rounded-md bg-sage-50 p-3 text-xs text-muted">
             {state!.emailConfigured ? (
               <>
                 <Badge tone="green">Email service connected</Badge> Messages are emailed and also kept in the log.

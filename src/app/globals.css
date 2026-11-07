@@ -18,19 +18,36 @@
   --color-sage-50: #f6f8f3;
   --color-sage-100: #edf1e7;
   --color-sage-200: #dfe6d5;
+  --color-sage-300: #cbd5bf;
 
   --color-cream: #fbfaf6;
   --color-ink: #1f2a22;
   --color-muted: #5d6b61;
+
+  --animate-fade-in: fade-in 120ms ease-out;
+  --animate-slide-in: slide-in 160ms ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes slide-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
 }
 
 html {
-  background: var(--color-sage-50);
+  background: var(--color-cream);
   color: var(--color-ink);
 }
 
 body {
   font-family: var(--font-sans);
+  font-size: 0.9375rem;
 }
 
 ::selection {
@@ -44,6 +61,19 @@ body {
 
 input[type="number"]::-webkit-inner-spin-button {
   opacity: 0.6;
+}
+
+dialog::backdrop {
+  background: rgb(27 54 38 / 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media print {

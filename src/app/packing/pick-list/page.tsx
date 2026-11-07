@@ -29,7 +29,7 @@ export default function PickListPage() {
       {groups.length === 0 ? (
         <EmptyState title="Nothing to pack right now" />
       ) : (
-        <article className="print-area mx-auto max-w-3xl rounded-2xl border border-sage-200 bg-white p-8 text-ink shadow-sm">
+        <article className="print-area mx-auto max-w-3xl rounded-lg border border-sage-200 bg-white p-8 text-ink shadow-sm">
           <header className="flex items-end justify-between border-b-2 border-forest-800 pb-4">
             <div>
               <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-forest-700">

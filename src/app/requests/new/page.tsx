@@ -148,7 +148,7 @@ export default function NewRequestPage() {
                 {fields.map((f, idx) => (
                   <div key={f.id} className="flex gap-2">
                     <input className={inputCls} list="seed-names" placeholder="Seed name, e.g. Kale" {...register(`items.${idx}.name`)} aria-label={`Seed ${idx + 1}`} />
-                    <input className={`${inputCls} w-28`} inputMode="numeric" placeholder="Qty" {...register(`items.${idx}.quantity`)} aria-label={`Quantity ${idx + 1}`} />
+                    <input className={`${inputCls} w-28!`} inputMode="numeric" placeholder="Qty" {...register(`items.${idx}.quantity`)} aria-label={`Quantity ${idx + 1}`} />
                     <Button variant="ghost" onClick={() => remove(idx)} aria-label="Remove seed" disabled={fields.length === 1}>
                       <Trash2 size={16} />
                     </Button>

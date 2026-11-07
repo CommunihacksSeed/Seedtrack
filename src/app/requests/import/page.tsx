@@ -96,7 +96,7 @@ export default function ImportRequestsPage() {
           <Card>
             <CardHeader title="1. Choose a file" />
             <div className="space-y-3 p-5 text-sm">
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-sage-200 bg-sage-50/60 px-4 py-8 text-center hover:border-forest-300">
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border-2 border-dashed border-sage-200 bg-sage-50/60 px-4 py-8 text-center hover:border-forest-300">
                 <FileUp className="text-forest-500" />
                 <span className="font-medium text-forest-900">{fileName || "Click to choose a .csv or .json file"}</span>
                 <input type="file" accept=".csv,.json,text/csv,application/json" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
