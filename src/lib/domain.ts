@@ -2,10 +2,9 @@
  * SeedFlow business rules.
  *
  * Every function here operates on a mutable DataSnapshot draft and throws a
- * DomainError before mutating anything if a rule would be violated. The local
- * demo store applies these functions to a copy under a lock; the Supabase
- * schema re-implements the same rules as transactional SQL functions
- * (supabase/migrations/0002_functions.sql).
+ * DomainError before mutating anything if a rule would be violated. The D1
+ * store applies these functions to a copy and commits the changed rows with
+ * a compare-and-swap (src/lib/store/d1.ts).
  */
 import {
   ACTIVE_STATUSES,

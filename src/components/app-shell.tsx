@@ -76,7 +76,6 @@ function Footer() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { state } = useData();
   return (
     <div className="min-h-screen lg:flex">
       <aside className="no-print sticky top-0 hidden h-screen w-64 shrink-0 flex-col justify-between border-r border-sage-200 bg-cream px-4 py-5 lg:flex">
@@ -112,11 +111,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <main className="min-w-0 flex-1">
-        {state?.demo && (
-          <div className="no-print border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900 lg:px-8">
-            Demo Mode — Sample Inventory Data. All quantities, schools and contacts are fictional. Data is stored in a local demo file, not a database.
-          </div>
-        )}
         <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-8">{children}</div>
       </main>
     </div>

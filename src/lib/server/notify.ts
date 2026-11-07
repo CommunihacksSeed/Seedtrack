@@ -111,7 +111,7 @@ export async function deliverNotification(
   store: SeedFlowStore,
   event: NotificationEvent,
   ctx: { orderId?: string; seedId?: string },
-  opts: { force?: boolean } = {},
+  opts: { force?: boolean; digest?: { subject: string; body: string } } = {},
 ) {
   const db = await store.snapshot();
   const settings = db.settings.notifications;
@@ -119,7 +119,7 @@ export async function deliverNotification(
   const order = ctx.orderId ? db.orders.find((o) => o.id === ctx.orderId) : undefined;
   const seed = ctx.seedId ? db.seeds.find((s) => s.id === ctx.seedId) : undefined;
   if ((ctx.orderId && !order) || (ctx.seedId && !seed)) return null;
-  const msg = compose(event, db, order, seed);
+  const msg = opts.digest ? { recipient: settings.staff_email, ...opts.digest } : compose(event, db, order, seed);
   let status: "sent" | "logged" | "skipped" | "failed" = "logged";
   let error: string | null = null;
   if (!msg.recipient) {
@@ -151,6 +151,31 @@ export async function deliverNotification(
 /** Fire-and-forget after the HTTP response is sent. */
 export function notifyLater(store: SeedFlowStore, event: NotificationEvent, ctx: { orderId?: string; seedId?: string }) {
   after(() => deliverNotification(store, event, ctx).catch((e) => console.error("notification failed", e)));
+}
+
+/**
+ * Workers limits how many D1 calls and fetches one request can make, and every
+ * notification uses several. A large import sends staff one summary instead.
+ */
+const MAX_INDIVIDUAL_IMPORT_NOTICES = 10;
+
+export function notifyImportLater(store: SeedFlowStore, orderIds: string[]) {
+  if (orderIds.length === 0) return;
+  after(async () => {
+    try {
+      if (orderIds.length > MAX_INDIVIDUAL_IMPORT_NOTICES) {
+        const digest = {
+          subject: `${orderIds.length} new seed requests imported`,
+          body: `${orderIds.length} new seed requests were imported and are waiting for review.`,
+        };
+        await deliverNotification(store, "request_received", {}, { digest });
+      } else {
+        for (const orderId of orderIds) await deliverNotification(store, "request_received", { orderId });
+      }
+    } catch (e) {
+      console.error("notification failed", e);
+    }
+  });
 }
 
 /** Snapshot the stock status of some seeds, run fn, then notify for seeds that newly became low/out of stock. */

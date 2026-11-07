@@ -30,9 +30,12 @@ if [ ! -d node_modules ]; then
   npm install || { read -r -p "npm install failed. Press Enter to close…"; exit 1; }
 fi
 
+# Create or update the local database. Nothing here touches the live site.
+npx cf d1 migrations apply 94072807-2577-41ea-b804-8ca9b20210ee --local --persist-to .cloudflare/state >/dev/null || { read -r -p "Database setup failed. Press Enter to close…"; exit 1; }
+
 # Open the browser once the server is up.
-( for i in {1..60}; do curl -s -o /dev/null http://localhost:3000 && open http://localhost:3000 && exit; sleep 1; done ) &
+( for i in {1..60}; do curl -s -o /dev/null http://localhost:3001 && open http://localhost:3001 && exit; sleep 1; done ) &
 
 echo ""
-echo "SeedFlow is running at http://localhost:3000  — keep this window open. Press Ctrl+C to stop."
+echo "SeedFlow is running at http://localhost:3001  — keep this window open. Press Ctrl+C to stop."
 npm run dev

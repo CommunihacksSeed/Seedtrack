@@ -47,7 +47,7 @@
 
 - **Reports**: #1004 is under completed orders, and distribution by category and organization updated. Export any table to CSV.
 
-**Close:** “Every stock change runs as one locked database transaction in Postgres. We tested two simultaneous approvals fighting over the same seeds, and only one won. Next steps are Cognito API sync once we have credentials, and individual staff logins.”
+**Close:** “Every stock change is one atomic database write that's rejected and re-checked if inventory changed in the meantime. We tested simultaneous approvals fighting over the same stock: one fails cleanly and nothing is over-reserved.”
 
 ## If there's extra time
 
@@ -59,4 +59,4 @@
 - **Where does inventory come from?** Staff enter counts or import a CSV. Unknown counts stay unknown until someone counts them.
 - **What if the request has no quantities?** It imports anyway, and staff choose approved quantities during review.
 - **Duplicate Cognito submissions?** The Cognito Entry ID is unique, so re-importing the same export is safe.
-- **Real data?** None is used. The demo data is fictional. Before real use we'd add logins (Supabase Auth).
+- **Real data?** None is used. The demo data is fictional. Before real use we'd add access control and logins.

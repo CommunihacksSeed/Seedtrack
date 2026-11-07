@@ -10,11 +10,10 @@ Next.js Route Handlers  /api/*          ← zod validation, error mapping
    │
    ▼
 SeedFlowStore interface (src/lib/store)
-   ├── supabase.ts  → PostgreSQL functions (one transaction per operation, row locks)
-   └── local.ts     → JSON file + in-process lock, running src/lib/domain.ts
+   └── d1.ts        → runs src/lib/domain.ts on a copy, commits changed rows with a compare-and-swap
 ```
 
-- **One source of business rules per backend.** `src/lib/domain.ts` holds the rules as pure functions over a snapshot. The local store runs them directly. `supabase/migrations/0002_functions.sql` implements the same rules in SQL. Both are covered by the same acceptance scenarios (`tests/` and `supabase/tests/`).
+- **One source of business rules.** `src/lib/domain.ts` holds the rules as pure functions over a snapshot. `src/lib/store/d1.ts` applies them and persists the result.
 - **The client never computes stock.** It only displays quantities and sends intents, like “approve order X with these decisions”. The server re-validates everything.
 - **Reads** use one endpoint, `GET /api/state`, which returns a snapshot. The UI derives dashboards and reports from it in `src/lib/views.ts`. That's plenty at YFS's scale (hundreds of orders). Paginate if it grows.
 
@@ -52,18 +51,16 @@ Availability is always `physical − reserved`. `physical_quantity = NULL` means
 
 ## Concurrency and idempotency
 
-Each mutating SQL function:
+D1 has no stored procedures, row locks or interactive transactions. Its atomic unit is `db.batch()`, which can't branch on what it reads. Each write therefore works like this:
 
-1. `SELECT … FOR UPDATE` on the order row. This serializes all actions on one order, so a double-clicked “Approve” waits and then sees “already approved”.
-2. Locks every affected `seeds` row **in id order**, which avoids deadlocks between orders that share seeds.
-3. Checks quantities on the locked rows, then writes stock, the movement log and the status in the same transaction.
-4. If anything fails, it raises an exception and the whole transaction rolls back, including any review edits made in that call.
+1. Read `store_meta.version` with the seeds, orders and order items in one batch.
+2. Run the domain function on a copy. A rule violation throws before anything is written.
+3. Send one batch: a compare-and-swap, then only the changed rows. If `version` has moved, the first statement sets it to -1, which violates the `store_meta_cas` CHECK and rolls back the batch.
+4. On a conflict, retry from fresh data, so rules are re-checked against the stock the other writer left. After 12 attempts the request fails with “busy”.
+
+Bulk imports use `store.transact()` so a whole file is one write. Looping over single-row methods would hit the D1 per-invocation query limit (50 on Workers Free, 1,000 on Paid).
 
 CHECK constraints are a second safety net: even a buggy code path can't commit `reserved > physical`.
-
-`supabase/tests/concurrency.sh` runs two real sessions at once. Session A approves 30 of 50 packets and holds its transaction open. Session B tries 30 at the same moment, blocks on the seed row lock, then sees only 20 available and fails.
-
-The local demo store gets the same effect inside one Node process: it chains every mutation through a promise lock, applies the domain function to a copy and writes the file atomically (temp file + rename).
 
 ## Imports and Cognito Forms
 
@@ -81,22 +78,20 @@ The local demo store gets the same effect inside one Node process: it chains eve
 
 ## Security model (prototype)
 
-- Supabase service role key and Cognito secrets live only in server environment variables.
-- RLS is enabled with no policies for `anon`/`authenticated`. `EXECUTE` on the `sf_*` functions is revoked from public and granted to `service_role` only.
-- **No login:** the prototype has no access control, so anyone who can reach the app can read and change data. Add Supabase Auth before real use.
+- D1 is reachable only through the Worker's `DB` binding. Cognito secrets live only in Worker secrets.
+- **No login:** the prototype has no access control, so anyone who can reach the app can read and change data. Add access control before real use.
 - Packing slips never include contact details. CSV exports guard against spreadsheet formula injection.
-- **Next step:** add Supabase Auth with per-user roles (staff vs. Seed Steward).
+- **Next step:** put the app behind Cloudflare Access, then add per-user roles (staff vs. Seed Steward).
 
 ## Where things live
 
 ```
 src/app/                 pages (dashboard, inventory, requests, packing, reports, settings) + api/
 src/components/          app shell, data provider, UI kit
-src/lib/domain.ts        business rules (local store + tests)
-src/lib/store/           store interface, local demo store, Supabase store
+src/lib/domain.ts        business rules (D1 store + tests)
+src/lib/store/           store interface, D1 store
 src/lib/import-mapping.ts, integrations/cognito.ts
-supabase/migrations/     schema, transactional functions, demo reset
-supabase/tests/          SQL acceptance + concurrency tests
-tests/                   Vitest tests
+migrations/              D1 schema
+tests/                   Vitest tests (domain rules, D1 store on Miniflare)
 public/templates/        CSV/JSON import templates
 ```
