@@ -90,12 +90,17 @@ export default function DashboardPage() {
         subtitle="Live overview of inventory and seed requests."
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatCard label="Packets on hand" value={inv.physical} icon={<Warehouse size={16} />} hint="Counted items only" />
         <StatCard label="Available packets" value={inv.available} icon={<CheckCircle2 size={16} />} hint="On hand minus reserved" />
         <StatCard label="Reserved packets" value={inv.reserved} icon={<Lock size={16} />} hint="Held for approved orders" />
-        <StatCard label="Active requests" value={view.active} icon={<ClipboardList size={16} />} />
-        <StatCard label="Awaiting approval" value={view.awaiting} icon={<HelpCircle size={16} />} tone={view.awaiting ? "warn" : "default"} />
+        <StatCard
+          label="Active requests"
+          value={view.active}
+          icon={<ClipboardList size={16} />}
+          tone={view.awaiting ? "warn" : "default"}
+          hint={view.awaiting ? `${view.awaiting} awaiting approval` : "None awaiting approval"}
+        />
         <StatCard label="To pack / ready" value={`${view.toPack} / ${view.ready}`} icon={<Package size={16} />} hint="Approved or preparing / ready to deliver" />
         <StatCard label="Delivered orders" value={view.delivered} icon={<Truck size={16} />} />
       </div>
