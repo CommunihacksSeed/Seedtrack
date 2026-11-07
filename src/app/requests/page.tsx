@@ -95,8 +95,8 @@ function RequestsPageContent() {
       title="Seed Requests"
       subtitle={
         group === "seed"
-          ? "Requested seeds by category: how many packets are asked for and by which requests."
-          : "Review requests against inventory, then approve to reserve stock."
+          ? "Total demand for each seed variety, and which requests need it."
+          : "Review and approve individual requests. Approving reserves stock."
       }
       actions={
         <>

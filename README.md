@@ -54,6 +54,10 @@ Production is at https://seedflow.space (Worker and D1 database both named `seed
 
 Open pages check `/api/version` every 10 seconds. A data change reloads the data, and a new deployment offers a **Reload** prompt.
 
+**Public form abuse protection is best effort.** `/request` is open to anyone. Submissions are validated on the server, limited in size, checked against real seed IDs, and screened with a hidden honeypot field. IP rate limiting uses the Cloudflare Workers Rate Limiting binding `PUBLIC_FORM_LIMITER` (declared in `cloudflare.config.ts`) when present, falling back to an in-memory counter that only protects a single Worker instance. Cloudflare's limiter counts per location and is eventually consistent, so this is a coarse brake, not production-grade abuse prevention. If a deploy rejects the binding, remove that one line.
+
+**Season dates** shown on the public form live in `src/lib/season.ts`. They are the 2026 spring dates and are marked historical until YFS confirms a new window; update that file and set `applicationsOpen` when it does.
+
 **There is no login or access control.** Anyone who can open the site can read and change data, including requester contact details. Put the site behind Cloudflare Access or add per-user login before handling real data. `SEEDFLOW_DISABLE_DEMO_RESET` is on in `cloudflare.config.ts`, so **Reset demo data** can't wipe the live database.
 
 ## Commands

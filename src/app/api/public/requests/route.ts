@@ -3,13 +3,22 @@ import { getStore } from "@/lib/store";
 import { DomainError, seedLabel } from "@/lib/domain";
 import { errorResponse, json, parseBody } from "@/lib/server/http";
 import { notifyLater } from "@/lib/server/notify";
+import { env } from "cloudflare:workers";
 
 /**
  * Public seed request form submissions (/request). No login, so it is kept
  * narrow: requests are created as "Received" for staff to review, seeds must
  * be ones in the inventory (names come from the database, not the browser),
  * text and list sizes are capped, a hidden honeypot field catches simple bots,
- * and each IP can submit a few times per 10 minutes (best effort, per worker).
+ * and each IP is limited.
+ *
+ * Rate limiting: when the PUBLIC_FORM_LIMITER binding (Cloudflare Workers Rate
+ * Limiting) is configured, it is used, and it is shared by all Worker instances
+ * in a Cloudflare location. It is still a coarse abuse brake, not a hard global
+ * quota: counts are per location and eventually consistent. Without the binding
+ * (local dev, or before it is deployed) we fall back to an in-memory counter
+ * that only protects a single Worker instance, so treat it as best effort.
+ * Limits are deliberately generous because a whole class may share one school IP.
  */
 const qty = z.number().int().min(0).max(1000);
 const text = (max: number) => z.string().trim().max(max);
@@ -29,9 +38,9 @@ const schema = z.object({
 });
 
 const WINDOW_MS = 10 * 60_000;
-const MAX_PER_WINDOW = 5;
+const MAX_PER_WINDOW = 15;
 const hits = new Map<string, number[]>();
-function rateLimited(ip: string) {
+function rateLimitedLocally(ip: string) {
   const now = Date.now();
   const recent = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
   if (recent.length >= MAX_PER_WINDOW) return true;
@@ -41,12 +50,24 @@ function rateLimited(ip: string) {
   return false;
 }
 
+async function rateLimited(ip: string) {
+  const limiter = env.PUBLIC_FORM_LIMITER;
+  if (limiter) {
+    try {
+      return !(await limiter.limit({ key: ip })).success;
+    } catch {
+      /* limiter unavailable: don't block legitimate submissions, use the local fallback */
+    }
+  }
+  return rateLimitedLocally(ip);
+}
+
 export async function POST(req: Request) {
   try {
     // Cloudflare always sets cf-connecting-ip in production. Without a known IP we
     // don't limit at all, rather than lumping every visitor into one shared bucket.
     const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-    if (ip && rateLimited(ip)) return json({ error: "Too many requests from this connection. Please wait a few minutes and try again." }, 429);
+    if (ip && (await rateLimited(ip))) return json({ error: "Too many requests from this connection. Please wait a few minutes and try again." }, 429);
     const body = await parseBody(req, schema);
     // Honeypot filled in: pretend it worked, store nothing.
     if (body.website) return json({ ok: true, order_number: null });

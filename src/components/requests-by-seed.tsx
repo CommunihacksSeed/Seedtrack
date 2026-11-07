@@ -111,7 +111,10 @@ function SeedRow({ d, onOpen }: { d: SeedDemand; onOpen: (orderId: string) => vo
           {avail === null ? (
             <StockBadge status={stockStatus(d.seed)} />
           ) : (
-            <span className={clsx("text-xs tabular-nums", short ? "font-medium text-red-700" : "text-muted")}>{fmtNum(avail)} available</span>
+            <span className={clsx("text-xs tabular-nums", short ? "font-medium text-red-800" : "text-muted")}>
+              {short && <AlertTriangle size={12} className="mr-1 inline align-[-2px]" aria-hidden />}
+              {fmtNum(avail)} available{short && ` · short by ${fmtNum(d.requested - avail)}`}
+            </span>
           )}
         </span>
       </button>

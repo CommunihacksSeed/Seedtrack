@@ -125,7 +125,17 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
   return (
     <div className="space-y-4">
       {variant === "page" && (
-        <Link href="/requests" className="no-print inline-flex items-center gap-1 text-sm text-muted hover:text-forest-700">
+        <Link
+          href="/requests"
+          className="no-print inline-flex min-h-8 items-center gap-1 text-sm text-muted hover:text-forest-700"
+          onClick={(e) => {
+            // Go back to the exact list (view, group, search) the person came from.
+            if (window.history.length > 1) {
+              e.preventDefault();
+              router.back();
+            }
+          }}
+        >
           <ArrowLeft size={14} /> Seed Requests
         </Link>
       )}
@@ -205,7 +215,7 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
                         <label className="block w-24 shrink-0 text-xs font-medium text-forest-900">
                           To approve
                           <input
-                            className={`${inputCls} mt-1 text-right font-semibold tabular-nums`}
+                            className={clsx(inputCls, "mt-1 text-right font-semibold tabular-nums", issues.some(({ text }) => text === "Whole number required") && "border-red-400 focus:border-red-500")}
                             inputMode="numeric"
                             value={r.unavailable ? "" : r.qty}
                             onChange={(e) => update(idx, { qty: e.target.value.trim() })}
@@ -249,7 +259,11 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
                         </div>
                         {issues.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {issues.map(({ text, tone }) => <Badge key={text} tone={tone}>{text}</Badge>)}
+                            {issues.map(({ text, tone }) => (
+                              <Badge key={text} tone={tone}>
+                                <AlertTriangle size={11} aria-hidden /> {text}
+                              </Badge>
+                            ))}
                           </div>
                         )}
                       </>

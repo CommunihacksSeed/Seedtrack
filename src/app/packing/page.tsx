@@ -161,15 +161,15 @@ function SeedView({ orders }: { orders: Order[] }) {
           const remaining = g.total - g.packed;
           const orderCount = new Set(g.lines.map(({ order }) => order.id)).size;
           return (
-            <Card key={g.seed.id}>
+            <Card key={g.seed.id} className={clsx(remaining === 0 && "border-sage-200 bg-sage-50/70 opacity-80")}>
               <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-4 py-3">
                 <div className="min-w-0 flex-1 basis-36">
-                  <p className="wrap-anywhere font-semibold text-forest-900">{seedLabel(g.seed)}</p>
-                  {g.seed.storage_location && <p className="text-xs text-muted">{g.seed.storage_location}</p>}
+                  <p className={clsx("wrap-anywhere font-semibold", remaining === 0 ? "text-muted" : "text-forest-900")}>{seedLabel(g.seed)}</p>
+                  {g.seed.storage_location && <p className="text-[13px] text-muted">Shelf / location: {g.seed.storage_location}</p>}
                 </div>
                 <p className="text-right text-xs text-muted">
                   <strong className="block text-2xl leading-tight font-semibold text-forest-900 tabular-nums">{fmtNum(remaining)}</strong>
-                  {g.seed.unit} left
+                  {g.seed.unit} left of {fmtNum(g.total)} needed
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-3">
@@ -332,6 +332,7 @@ function PackCard({ order, items, seeds }: { order: Order; items: OrderItem[]; s
         </ul>
         <p className="text-xs text-muted">
           {done} of {items.length} items packed
+          {packing && !allPacked && " · Mark ready once every item is packed"}
         </p>
       </div>
 

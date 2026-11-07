@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { Boxes, CalendarDays, Check, ChevronDown, Sprout } from "lucide-react";
+import { Boxes, CalendarDays, Check, ChevronDown, Loader2, Sprout, X } from "lucide-react";
 import { Button, Card, Field, SearchInput, inputCls } from "@/components/ui";
 import { availableQuantity, seedLabel } from "@/lib/domain";
 import { CATEGORIES, type OrderInput, type Seed } from "@/lib/types";
+import { SEASON } from "@/lib/season";
 
 /**
  * The YFS seed request form, shared by the public link (/request) and the
@@ -36,7 +37,8 @@ export function SeedRequestForm({
   /** Throw an Error with a readable message to show it under the form. */
   onSubmit: (payload: SeedRequestPayload) => Promise<void>;
 }) {
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+  const errorRef = useRef<HTMLDivElement>(null);
   const [f, setF] = useState({
     name: "",
     email: "",
@@ -90,8 +92,12 @@ export function SeedRequestForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setTried(true);
-    setFormError(null);
-    if (!valid) return setFormError(Object.values(errors).find(Boolean)!);
+    setFormErrors([]);
+    if (!valid) {
+      setFormErrors(Object.values(errors).filter((m): m is string => Boolean(m)));
+      requestAnimationFrame(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      return;
+    }
     setBusy(true);
     try {
       await onSubmit({
@@ -120,7 +126,8 @@ export function SeedRequestForm({
         ...(f.website ? { website: f.website } : {}),
       } as SeedRequestPayload);
     } catch (err) {
-      setFormError((err as Error).message);
+      setFormErrors([(err as Error).message]);
+      requestAnimationFrame(() => errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
     } finally {
       setBusy(false);
     }
@@ -137,15 +144,26 @@ export function SeedRequestForm({
         </label>
       </div>
 
-      <Card className="mt-4 border-forest-200 bg-forest-50/50 p-4 text-sm">
+      <Card className="mt-4 border-amber-200 bg-amber-50/60 p-4 text-sm">
         <p className="flex items-center gap-2 font-semibold text-forest-900">
-          <CalendarDays size={16} aria-hidden /> 2026 season
+          <CalendarDays size={16} aria-hidden /> {SEASON.applicationsOpen ? SEASON.label : "Please confirm current deadlines with YFS"}
         </p>
+        {!SEASON.applicationsOpen && (
+          <p className="mt-1.5 text-forest-900/80">
+            The dates below are from the {SEASON.label} and have passed. Submitting this form does not guarantee seeds; staff will confirm what is available.
+          </p>
+        )}
         <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-forest-900/80">
-          <li>Best to request before <strong>February 25</strong> so Seed Stewards can fill and mail orders.</li>
-          <li>Requests are accepted until <strong>March 15</strong>; seeds are mailed or delivered from <strong>February 12</strong>.</li>
           <li>
-            Questions: <a className="underline" href="mailto:jessica@seeds.ca">jessica@seeds.ca</a>
+            {SEASON.applicationsOpen ? "Best to request before" : "Recommended request date was"} <strong>{SEASON.recommendedDeadline}</strong>
+            {SEASON.applicationsOpen ? " so Seed Stewards can fill and mail orders." : "."}
+          </li>
+          <li>
+            {SEASON.applicationsOpen ? "Requests are accepted until" : "Final deadline was"} <strong>{SEASON.finalDeadline}</strong>; seeds{" "}
+            {SEASON.applicationsOpen ? "are mailed or delivered from" : "started going out"} <strong>{SEASON.distributionStart}</strong>.
+          </li>
+          <li>
+            Questions: <a className="underline" href={`mailto:${SEASON.contactEmail}`}>{SEASON.contactEmail}</a>
           </li>
         </ul>
       </Card>
@@ -205,8 +223,44 @@ export function SeedRequestForm({
           ))}
 
         <p className="mt-6 text-sm font-medium text-forest-900">Which types of seeds would you like to request?</p>
-        <p className="mb-3 text-sm text-muted">Open a category and tick the seeds you’d like. Packet counts are optional; leave blank and staff will decide.</p>
+        <p className="mb-3 text-sm text-muted">Search, or open a category and tick the seeds you’d like.</p>
         <SearchInput className="mb-3" value={q} onChange={setQ} placeholder="Search seeds (e.g. tomato, basil)" label="Search seeds" />
+        {pickedCount > 0 && (
+          <div className="mb-3 rounded-lg border border-forest-200 bg-forest-50/60 p-3" aria-label="Your selected seeds">
+            <p className="text-sm font-medium text-forest-900">Your selection ({pickedCount})</p>
+            <p className="mb-2 text-[13px] text-muted">Packets are optional. Leave a box blank if you aren’t sure and staff will suggest an amount.</p>
+            <ul className="divide-y divide-forest-100">
+              {Object.keys(picked)
+                .map((id) => seedById.get(id)!)
+                .filter(Boolean)
+                .sort((a, b) => seedLabel(a).localeCompare(seedLabel(b)))
+                .map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 py-1.5">
+                    <span className="min-w-0 flex-1 truncate text-sm text-forest-900">{seedLabel(s)}</span>
+                    <input
+                      className={clsx(inputCls, "!h-9 !w-24 !px-2 text-right text-sm")}
+                      inputMode="numeric"
+                      placeholder="packets"
+                      value={picked[s.id]}
+                      onChange={(e) => setPicked((p) => ({ ...p, [s.id]: e.target.value }))}
+                      aria-label={`Packets of ${seedLabel(s)} (optional)`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleSeed(s)}
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white hover:text-forest-900"
+                      aria-label={`Remove ${seedLabel(s)}`}
+                    >
+                      <X size={16} aria-hidden />
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
+        {needle && !byCategory.some(({ category, seeds }) => seeds.some((s) => `${seedLabel(s)} ${category}`.toLowerCase().includes(needle))) && (
+          <p className="mb-3 rounded-lg border border-dashed border-sage-300 px-4 py-3 text-sm text-muted">No seeds match “{q.trim()}”. You can describe what you’re looking for in the special requests box below.</p>
+        )}
         <div className="space-y-2">
           {byCategory.map(({ category, seeds }) => {
             const shown = seeds.filter((s) => !needle || `${seedLabel(s)} ${category}`.toLowerCase().includes(needle));
@@ -217,7 +271,7 @@ export function SeedRequestForm({
               <div key={category} className="overflow-hidden rounded-lg border border-sage-200 bg-white">
                 <button
                   type="button"
-                  className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-sage-50"
+                  className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-sage-50"
                   aria-expanded={open}
                   onClick={() => setOpenCats((c) => ({ ...c, [category]: !open }))}
                 >
@@ -236,28 +290,18 @@ export function SeedRequestForm({
                       const avail = availableQuantity(s);
                       const out = avail !== null && avail <= 0;
                       return (
-                        <li key={s.id} className={clsx("flex items-center gap-2 px-4 py-1.5", on && "bg-forest-50/60")}>
-                          <label className={clsx("flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm", out && "text-muted")}>
-                            <input type="checkbox" className="h-4 w-4 shrink-0 accent-forest-600" checked={on} onChange={() => toggleSeed(s)} />
-                            <span className="truncate">
+                        <li key={s.id} className={clsx("flex items-center gap-2 px-4", on && "bg-forest-50/60")}>
+                          <label className={clsx("flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-sm", out && "text-muted")}>
+                            <input type="checkbox" className="h-5 w-5 shrink-0 accent-forest-600" checked={on} onChange={() => toggleSeed(s)} />
+                            <span className="min-w-0">
                               {seedLabel(s)}
                               {out ? (
                                 <span className="text-xs"> (out of stock)</span>
                               ) : avail !== null && avail <= 5 ? (
-                                <span className="text-xs text-amber-700"> (only {avail} available)</span>
+                                <span className="text-xs text-amber-800"> (only {avail} available)</span>
                               ) : null}
                             </span>
                           </label>
-                          {on && (
-                            <input
-                              className={clsx(inputCls, "h-7! w-20! px-2! text-right text-xs")}
-                              inputMode="numeric"
-                              placeholder="packets"
-                              value={picked[s.id]}
-                              onChange={(e) => setPicked((p) => ({ ...p, [s.id]: e.target.value }))}
-                              aria-label={`Packets of ${seedLabel(s)}`}
-                            />
-                          )}
                         </li>
                       );
                     })}
@@ -309,19 +353,25 @@ export function SeedRequestForm({
         </div>
       </Section>
 
-      {formError && (
-        <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {formError}
-        </p>
+      {formErrors.length > 0 && (
+        <div ref={errorRef} role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <p className="font-medium">{formErrors.length === 1 ? "Please fix this to continue:" : "Please fix these to continue:"}</p>
+          <ul className="mt-1 list-disc pl-5">
+            {formErrors.map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+        </div>
       )}
       <div className="sticky bottom-0 -mx-4 mt-6 flex items-center justify-between gap-3 border-t border-sage-200 bg-sage-50/95 px-4 py-3 backdrop-blur">
         <p className="flex items-center gap-1.5 text-sm text-muted">
           <Sprout size={15} className="text-forest-600" aria-hidden />
           {pickedCount} seed type{pickedCount === 1 ? "" : "s"} · {f.wantsBundles === "yes" ? bundles.length : 0} bundle
           {(f.wantsBundles === "yes" ? bundles.length : 0) === 1 ? "" : "s"}
-          {tried && errors.nothing && <span className="text-red-700"> — {errors.nothing}</span>}
+          {tried && errors.nothing && <span className="text-red-800"> — {errors.nothing}</span>}
         </p>
-        <Button type="submit" variant="primary" disabled={busy}>
+        <Button type="submit" variant="primary" disabled={busy} aria-busy={busy}>
+          {busy && <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden />}
           {busy ? "Sending…" : submitLabel}
         </Button>
       </div>
@@ -365,7 +415,7 @@ function Choice({ on, onClick, children }: { on: boolean; onClick: () => void; c
       aria-checked={on}
       onClick={onClick}
       className={clsx(
-        "min-w-20 rounded-md border px-4 py-2 text-sm font-medium",
+        "min-h-11 min-w-20 rounded-md border px-4 py-2 text-sm font-medium",
         on ? "border-forest-600 bg-forest-600 text-white" : "border-sage-200 bg-white text-forest-800 hover:bg-sage-50",
       )}
     >

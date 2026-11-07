@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Sprout } from "lucide-react";
 import { Button, ErrorState, Loading } from "@/components/ui";
+import { SEASON } from "@/lib/season";
 import { SeedRequestForm, type FormBundle, type FormSeed } from "@/components/seed-request-form";
 
 /**
@@ -59,9 +60,9 @@ export default function PublicRequestPage() {
               </p>
             )}
             <p className="mt-3 text-sm text-muted">
-              Our Youth Seed Stewards will review it and get your seeds ready. Questions? Email{" "}
-              <a className="text-forest-700 underline" href="mailto:jessica@seeds.ca">
-                jessica@seeds.ca
+              Our Youth Seed Stewards will review it. Receiving a request number does not mean it has been approved yet; staff will confirm what is available. Keep this number if you contact us. Questions? Email{" "}
+              <a className="text-forest-700 underline" href={`mailto:${SEASON.contactEmail}`}>
+                {SEASON.contactEmail}
               </a>
               .
             </p>
