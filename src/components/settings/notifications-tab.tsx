@@ -81,7 +81,7 @@ export function NotificationsTab() {
             <Field label="Staff email" hint="Gets new-request and low-stock alerts" className="flex-1">
               <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seeds@example.org" />
             </Field>
-            <Button type="submit" disabled={busy} className="mb-[18px]">
+            <Button type="submit" variant="primary" disabled={busy} className="mb-[18px]">
               Save
             </Button>
           </form>

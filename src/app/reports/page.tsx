@@ -48,8 +48,8 @@ export default function ReportsPage() {
             <Button onClick={() => exp("orders")}>
               <Download size={16} /> Orders
             </Button>
-            <Button onClick={() => exp("distribution")}>
-              <Download size={16} /> Distribution
+            <Button variant="primary" onClick={() => exp("distribution")}>
+              <Download size={16} /> Export distribution
             </Button>
             <Button onClick={() => exp("movements")}>
               <Download size={16} /> Stock history

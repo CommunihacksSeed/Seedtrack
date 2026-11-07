@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import clsx from "clsx";
 import { AlertTriangle, ArrowLeft, Ban, Boxes, CheckCircle2, ExternalLink, Mail, MapPin, Package, Plus, Printer, Save, Truck, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useData } from "@/components/data-provider";
-import { ActionMenu, Badge, Button, EmptyState, LinkButton, Modal, Qty, StatusBadge, fmtDate, fmtNum, inputCls, type MenuItem } from "@/components/ui";
+import { ActionMenu, Badge, Button, EmptyState, LinkButton, Modal, StatusBadge, fmtDate, fmtNum, inputCls, type MenuItem } from "@/components/ui";
 import { availableQuantity, seedLabel } from "@/lib/domain";
 import { suggestQuantity } from "@/lib/allocation";
 import { DELIVERY_LABELS, DELIVERY_METHODS, REVIEWABLE_STATUSES, RESERVING_STATUSES, type Order, type OrderItem, type Seed } from "@/lib/types";
@@ -155,12 +155,12 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
             </Button>
           )}
           {reserving && order.status !== "Ready" && (
-            <LinkButton href="/packing" variant="secondary">
+            <LinkButton href="/packing" variant="primary">
               <Package /> Pack this order
             </LinkButton>
           )}
           {order.status === "Ready" && (
-            <Button variant="primary" onClick={() => act({ action: "deliver" }, "Delivered — stock deducted")} disabled={busy}>
+            <Button variant="primary" onClick={() => act({ action: "deliver" }, `Order #${order.order_number} delivered.`)} disabled={busy}>
               <Truck /> Mark delivered
             </Button>
           )}
@@ -193,84 +193,69 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
                 const { seed, issues } = checks[idx];
                 return (
                   <li key={r.item.id} className={clsx("px-4 py-3", r.unavailable && "bg-stone-50")}>
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className={clsx("font-semibold", r.unavailable ? "text-muted line-through" : "text-forest-900")}>{r.item.requested_seed_name}</p>
+                    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                      <div className="min-w-0 flex-1 basis-36">
+                        <p className={clsx("wrap-anywhere font-semibold", r.unavailable ? "text-muted line-through" : "text-forest-900")}>{r.item.requested_seed_name}</p>
                         <p className="text-xs text-muted">
-                          {r.item.requested_quantity === null ? "Quantity not specified" : `Asked for ${fmtNum(r.item.requested_quantity)}`}
+                          {r.item.requested_quantity === null ? "Quantity not specified" : `Requested ${fmtNum(r.item.requested_quantity)}`}
                         </p>
                       </div>
-                      {reviewable && (
-                        <div className="flex flex-wrap gap-1">
-                          {issues.map((i) => (
-                            <Badge key={i.text} tone={i.tone}>
-                              <AlertTriangle size={12} aria-hidden /> {i.text}
-                            </Badge>
-                          ))}
-                          {!r.item.seed_id && r.seedId && <Badge tone="green">Matched by staff</Badge>}
-                        </div>
+                      <StockLine seed={seed} />
+                      {reviewable ? (
+                        <label className="block w-24 shrink-0 text-xs font-medium text-forest-900">
+                          To approve
+                          <input
+                            className={`${inputCls} mt-1 text-right font-semibold tabular-nums`}
+                            inputMode="numeric"
+                            value={r.unavailable ? "" : r.qty}
+                            onChange={(e) => update(idx, { qty: e.target.value.trim() })}
+                            disabled={r.unavailable}
+                            aria-label={`Approved packets for ${r.item.requested_seed_name}`}
+                            aria-invalid={issues.some(({ text }) => text === "Whole number required")}
+                          />
+                          {r.suggested && !r.unavailable && <span className="mt-1 block text-right font-normal text-muted">Suggested</span>}
+                        </label>
+                      ) : r.item.unavailable ? (
+                        <Badge tone="slate">Unavailable</Badge>
+                      ) : (
+                        <dl className="flex shrink-0 gap-4 text-sm">
+                          <div>
+                            <dt className="text-xs text-muted">Approved</dt>
+                            <dd className="font-semibold tabular-nums">{r.item.approved_quantity ?? "—"}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-muted">Packed</dt>
+                            <dd className="tabular-nums">{(r.item.approved_quantity ?? 0) > 0 ? `${r.item.packed_quantity} / ${r.item.approved_quantity}` : "—"}</dd>
+                          </div>
+                        </dl>
                       )}
                     </div>
 
-                    <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                      <div className="min-w-0">
-                        {reviewable ? (
-                          <select
-                            className={inputCls}
-                            value={r.seedId}
-                            onChange={(e) => update(idx, { seedId: e.target.value })}
-                            disabled={r.unavailable}
-                            aria-label={`Inventory item for ${r.item.requested_seed_name}`}
-                          >
-                            <option value="">Choose inventory item…</option>
-                            {seeds.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {seedLabel(s)}
-                                {s.physical_quantity === null ? " (not counted)" : ` (${availableQuantity(s)} available)`}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <p className="text-sm">{seed ? seedLabel(seed) : <span className="text-muted">Not matched</span>}</p>
+                    {reviewable ? (
+                      <>
+                        <div className="mt-2 flex flex-wrap items-start gap-x-4 gap-y-1">
+                          {!r.unavailable && (
+                            <InventoryMatch
+                              seed={seed}
+                              seeds={seeds}
+                              requestedName={r.item.requested_seed_name}
+                              onChange={(seedId) => update(idx, { seedId })}
+                            />
+                          )}
+                          <label className="flex min-h-8 items-center gap-2 text-xs text-muted">
+                            <input type="checkbox" className="size-4 accent-forest-600" checked={r.unavailable} onChange={(e) => update(idx, { unavailable: e.target.checked })} />
+                            Unavailable
+                          </label>
+                        </div>
+                        {issues.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {issues.map(({ text, tone }) => <Badge key={text} tone={tone}>{text}</Badge>)}
+                          </div>
                         )}
-                        <StockLine seed={seed} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {reviewable ? (
-                          <>
-                            <label className="flex items-center gap-2 text-sm">
-                              <span className="text-muted">Approve</span>
-                              <input
-                                className={`${inputCls} w-20! text-right tabular-nums`}
-                                inputMode="numeric"
-                                value={r.unavailable ? "" : r.qty}
-                                onChange={(e) => update(idx, { qty: e.target.value.trim() })}
-                                disabled={r.unavailable}
-                                aria-label={`Approved packets for ${r.item.requested_seed_name}`}
-                              />
-                            </label>
-                            {r.suggested && !r.unavailable && <Badge tone="blue">Suggested</Badge>}
-                            <label className="flex items-center gap-1.5 text-sm">
-                              <input type="checkbox" className="size-4 accent-forest-600" checked={r.unavailable} onChange={(e) => update(idx, { unavailable: e.target.checked })} />
-                              Unavailable
-                            </label>
-                          </>
-                        ) : r.item.unavailable ? (
-                          <Badge tone="slate">Unavailable</Badge>
-                        ) : (
-                          <dl className="flex gap-4 text-sm">
-                            <div>
-                              <dt className="text-xs text-muted">Approved</dt>
-                              <dd className="text-right font-semibold tabular-nums">{r.item.approved_quantity ?? "—"}</dd>
-                            </div>
-                            <div>
-                              <dt className="text-xs text-muted">Packed</dt>
-                              <dd className="text-right tabular-nums">{(r.item.approved_quantity ?? 0) > 0 ? `${r.item.packed_quantity} / ${r.item.approved_quantity}` : "—"}</dd>
-                            </div>
-                          </dl>
-                        )}
-                      </div>
-                    </div>
+                      </>
+                    ) : seed && seedLabel(seed) !== r.item.requested_seed_name && (
+                      <p className="mt-1 text-xs text-muted">Matched to {seedLabel(seed)}</p>
+                    )}
                   </li>
                 );
               })}
@@ -354,11 +339,11 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
                   </span>
                 )}
               </p>
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 flex-wrap gap-2">
                 <Button onClick={() => act({ action: "save_review", review: reviewPayload() }, "Review saved")} disabled={busy || rows.length === 0}>
                   <Save /> Save review
                 </Button>
-                <Button variant="primary" onClick={() => act({ action: "approve", review: reviewPayload() }, "Approved — stock reserved")} disabled={busy || blocking || rows.length === 0}>
+                <Button variant="primary" onClick={() => act({ action: "approve", review: reviewPayload() }, `Order #${order.order_number} approved. ${fmtNum(totalApproved)} ${totalApproved === 1 ? "packet" : "packets"} reserved.`)} disabled={busy || blocking || rows.length === 0}>
                   <CheckCircle2 /> Approve and reserve
                 </Button>
               </div>
@@ -468,19 +453,62 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
   );
 }
 
-function StockLine({ seed }: { seed: Seed | undefined }) {
-  if (!seed) return null;
-  if (seed.physical_quantity === null)
-    return (
-      <p className="mt-1 text-xs">
-        <Qty value={null} /> <span className="text-muted">· can’t be allocated until counted</span>
-      </p>
-    );
+function InventoryMatch({ seed, seeds, requestedName, onChange }: { seed: Seed | undefined; seeds: Seed[]; requestedName: string; onChange: (id: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const selectId = useId();
+  const matchLabel = seed ? seedLabel(seed) : null;
   return (
-    <p className="mt-1 text-xs tabular-nums text-muted">
-      On hand {fmtNum(seed.physical_quantity)} · Reserved {fmtNum(seed.reserved_quantity)} ·{" "}
-      <strong className="font-semibold text-forest-900">Available {fmtNum(availableQuantity(seed)!)}</strong>
-    </p>
+    <div className="min-w-0 max-w-full">
+      {seed && (
+        <div className="flex flex-wrap items-center gap-x-2">
+          {matchLabel !== requestedName && <span className="wrap-anywhere text-xs text-muted">Matched to {matchLabel}</span>}
+          <button
+            type="button"
+            className="min-h-8 rounded px-0.5 text-xs font-medium text-forest-700 underline decoration-forest-300 underline-offset-2 hover:text-forest-900"
+            aria-label={`${editing ? "Hide match editor" : "Change match"} for ${requestedName}`}
+            aria-expanded={editing}
+            aria-controls={editing ? selectId : undefined}
+            onClick={() => setEditing(!editing)}
+          >
+            {editing ? "Hide match editor" : "Change match"}
+          </button>
+        </div>
+      )}
+      {(!seed || editing) && (
+        <select
+          id={selectId}
+          className={`${inputCls} max-w-full sm:w-64`}
+          value={seed?.id ?? ""}
+          onChange={(e) => {
+            setEditing(true);
+            onChange(e.target.value);
+          }}
+          aria-label={`Inventory item for ${requestedName}`}
+        >
+          <option value="">Choose inventory item…</option>
+          {seeds.map((item) => (
+            <option key={item.id} value={item.id}>
+              {seedLabel(item)}{item.physical_quantity === null ? " (not counted)" : ` (${availableQuantity(item)} available)`}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+function StockLine({ seed }: { seed: Seed | undefined }) {
+  const available = seed ? availableQuantity(seed) : null;
+  return (
+    <div className="min-w-24 text-xs">
+      <p className="text-muted">Available</p>
+      <p className="mt-1 text-sm font-semibold text-forest-900 tabular-nums">
+        {available === null ? (seed ? "Not counted" : "Not matched") : fmtNum(available)}
+      </p>
+      {seed && seed.physical_quantity !== null && (
+        <p className="text-muted tabular-nums">{fmtNum(seed.physical_quantity)} on hand · {fmtNum(seed.reserved_quantity)} reserved</p>
+      )}
+    </div>
   );
 }
 

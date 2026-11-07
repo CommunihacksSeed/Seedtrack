@@ -98,13 +98,13 @@ export default function DeliveriesPage() {
     <>
       <PageHeader
         title="Deliveries"
-        subtitle="Choose how each order gets there. SeedFlow plans the shortest drop-off route for you."
+        subtitle="Choose drop-off, mail, or pickup for each order."
         actions={
           <>
             <Button onClick={() => window.print()} disabled={!view.trips.length}>
               <Printer size={16} /> Print route
             </Button>
-            <Button onClick={() => setEditDepot(true)}>
+            <Button variant={view.depot ? "secondary" : "primary"} onClick={() => setEditDepot(true)}>
               <Settings2 size={16} /> Route settings
             </Button>
           </>
@@ -129,7 +129,7 @@ export default function DeliveriesPage() {
 
       {/* 1. How each order is delivered */}
       <Card className="no-print mb-6">
-        <CardHeader title="1. How does each order get there?" subtitle={`${view.orders.length} order${view.orders.length === 1 ? "" : "s"} · only Ready orders can be marked delivered`} />
+        <CardHeader title="1. Choose a delivery method" subtitle={`${view.orders.length} order${view.orders.length === 1 ? "" : "s"} · only Ready orders can be marked delivered`} />
         {view.orders.length === 0 ? (
           <div className="p-5">
             <EmptyState title="No orders to deliver">Approved and packed orders appear here.</EmptyState>
@@ -222,7 +222,7 @@ export default function DeliveriesPage() {
       <section className="mb-6">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="flex items-center gap-2 font-semibold text-forest-900">
-            <Navigation size={18} /> 2. Best drop-off route
+            <Navigation size={18} /> 2. Plan drop-offs
           </h2>
           {view.trips.length > 0 && (
             <p className="text-sm text-muted">
@@ -266,8 +266,8 @@ export default function DeliveriesPage() {
                         sub={s.data.mailing_address ?? ""}
                         action={
                           s.data.status === "Ready" ? (
-                            <Button size="sm" onClick={() => act(s.data, { action: "deliver" }, `#${s.data.order_number} delivered`)}>
-                              <Truck size={13} /> Delivered
+                            <Button size="sm" variant="primary" onClick={() => act(s.data, { action: "deliver" }, `Order #${s.data.order_number} delivered.`)}>
+                              <Truck size={13} /> Mark delivered
                             </Button>
                           ) : (
                             <StatusBadge status={s.data.status} />
@@ -283,7 +283,7 @@ export default function DeliveriesPage() {
           </div>
         )}
         <p className="mt-2 text-[11px] text-muted">
-          Distances are straight-line estimates × {1.3} for roads; Google Maps gives exact driving times. Trips hold up to {view.d.max_stops_per_trip} stops.
+          Distances are straight-line estimates × {1.3} for roads; Open Google Maps for driving directions. Trips hold up to {view.d.max_stops_per_trip} stops.
         </p>
       </section>
 
@@ -295,8 +295,8 @@ export default function DeliveriesPage() {
           orders={view.mail}
           packets={view.packets}
           empty="No orders going by mail"
-          onDone={(o) => act(o, { action: "deliver" }, `#${o.order_number} marked as sent`)}
-          doneLabel="Sent"
+          onDone={(o) => act(o, { action: "deliver" }, `Order #${o.order_number} marked as mailed.`)}
+          doneLabel="Mark as mailed"
         />
         <SimpleList
           title="Pickup"
@@ -304,8 +304,8 @@ export default function DeliveriesPage() {
           orders={view.pickup}
           packets={view.packets}
           empty="No pickups"
-          onDone={(o) => act(o, { action: "deliver" }, `#${o.order_number} picked up`)}
-          doneLabel="Picked up"
+          onDone={(o) => act(o, { action: "deliver" }, `Order #${o.order_number} marked as picked up.`)}
+          doneLabel="Mark picked up"
         />
       </div>
       {view.undecided.length > 0 && (
@@ -393,7 +393,7 @@ function SimpleList({
                 </p>
               </div>
               {o.status === "Ready" ? (
-                <Button size="sm" onClick={() => onDone(o)}>
+                <Button size="sm" variant="primary" onClick={() => onDone(o)}>
                   <CheckCircle2 size={13} /> {doneLabel}
                 </Button>
               ) : (

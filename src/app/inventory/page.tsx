@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -60,6 +60,7 @@ function InventoryPageContent() {
   const [cat, setCat] = useState("All");
   const [editing, setEditing] = useState<Seed | "new" | null>(null);
   const [countingId, setCountingId] = useState<string | null>(null);
+  const [countFeedback, setCountFeedback] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const importing = importOpen || importParam === "1";
 
@@ -83,6 +84,7 @@ function InventoryPageContent() {
   const selected = all.find((s) => s.id === selectedId) ?? null;
   const counting = all.find((s) => s.id === countingId) ?? null;
   const filtered = q.trim() !== "" || cat !== "All";
+  const firstToCount = view === "uncounted" ? seeds[0] : undefined;
   // "Save and count next" walks the seeds currently listed that still need a count.
   const nextToCount = (after: Seed) => seeds.find((s) => s.id !== after.id && s.physical_quantity === null) ?? null;
 
@@ -104,8 +106,13 @@ function InventoryPageContent() {
     { label: "Delete seed", icon: <Trash2 />, danger: true, onSelect: () => remove(s) },
   ];
 
+  function startCount(seed: Seed) {
+    setCountFeedback("");
+    setCountingId(seed.id);
+  }
+
   const countButton = (s: Seed) => (
-    <Button size="sm" onClick={() => setCountingId(s.id)} aria-label={`${s.physical_quantity === null ? "Count" : "Recount"} ${seedLabel(s)}`}>
+    <Button size="sm" onClick={() => startCount(s)} aria-label={`${s.physical_quantity === null ? "Count" : "Recount"} ${seedLabel(s)}`}>
       <ClipboardCheck /> {s.physical_quantity === null ? "Count" : "Recount"}
     </Button>
   );
@@ -123,9 +130,14 @@ function InventoryPageContent() {
             <Button onClick={() => setImportOpen(true)}>
               <Upload /> Import CSV
             </Button>
-            <Button variant="primary" onClick={() => setEditing("new")}>
+            <Button variant={firstToCount ? "secondary" : "primary"} onClick={() => setEditing("new")}>
               <Plus /> Add seed
             </Button>
+            {firstToCount && (
+              <Button variant="primary" onClick={() => startCount(firstToCount)}>
+                <ClipboardCheck /> Start counting
+              </Button>
+            )}
           </>
         }
       />
@@ -296,7 +308,7 @@ function InventoryPageContent() {
               <Button onClick={() => setEditing(selected)}>
                 <Pencil /> Edit details
               </Button>
-              <Button variant="primary" onClick={() => setCountingId(selected.id)}>
+              <Button variant="primary" onClick={() => startCount(selected)}>
                 <ClipboardCheck /> {selected.physical_quantity === null ? "Count stock" : "Recount"}
               </Button>
             </>
@@ -310,12 +322,17 @@ function InventoryPageContent() {
         {editing !== null && <SeedForm seed={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
       </Modal>
       <Modal open={counting !== null} onClose={() => setCountingId(null)} title="Record stock count">
+        <p role="status" className={countFeedback ? "mb-3 rounded-md bg-forest-50 px-3 py-2 text-sm text-forest-800" : "sr-only"}>{countFeedback}</p>
         {counting && (
           <StockCountForm
             key={counting.id}
             seed={counting}
             next={nextToCount(counting)}
-            onDone={(next) => setCountingId(next?.id ?? null)}
+            onDone={(next, message) => {
+              if (message && !next) toast(message);
+              setCountFeedback(next ? message ?? "" : "");
+              setCountingId(next?.id ?? null);
+            }}
           />
         )}
       </Modal>
@@ -529,26 +546,46 @@ function SeedForm({ seed, onDone }: { seed: Seed | null; onDone: () => void }) {
   );
 }
 
-function StockCountForm({ seed, next: nextSeed, onDone }: { seed: Seed; next: Seed | null; onDone: (next: Seed | null) => void }) {
+function StockCountForm({ seed, next: nextSeed, onDone }: { seed: Seed; next: Seed | null; onDone: (next: Seed | null, message?: string) => void }) {
   const { mutate, toast } = useData();
   const [value, setValue] = useState(seed.physical_quantity?.toString() ?? "");
   const [unknown, setUnknown] = useState(false);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const countInput = useRef<HTMLInputElement>(null);
+  const active = useRef(false);
   const valid = unknown || /^\d+$/.test(value.trim());
   const next = unknown ? null : Number(value);
 
+  useEffect(() => {
+    active.current = true;
+    const frame = requestAnimationFrame(() => {
+      countInput.current?.focus();
+      countInput.current?.select();
+    });
+    return () => {
+      active.current = false;
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!valid) return;
-    const goNext = (e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "next";
+    if (!valid || busy) return;
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const continueTo = submitter?.value === "close" ? null : nextSeed;
+    setError("");
     setBusy(true);
     try {
       await mutate(`/api/seeds/${seed.id}/stock`, { physical_quantity: next, notes: notes || null });
-      toast(`Stock count saved for ${seedLabel(seed)}`);
-      onDone(goNext ? nextSeed : null);
+      const message = next === null ? `${seedLabel(seed)} marked as not counted.` : `${seedLabel(seed)}: ${fmtNum(next)} on hand.`;
+      if (active.current) onDone(continueTo, message);
+      else toast(message);
     } catch (err) {
-      toast((err as Error).message, "error");
+      const message = (err as Error).message;
+      if (active.current) setError(message);
+      else toast(message, "error");
     } finally {
       setBusy(false);
     }
@@ -556,46 +593,43 @@ function StockCountForm({ seed, next: nextSeed, onDone }: { seed: Seed; next: Se
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="rounded-md bg-sage-50 p-3 text-sm">
-        <p className="font-medium text-forest-900">{seedLabel(seed)}</p>
-        <p className="mt-1 text-muted">
-          Currently: <Qty value={seed.physical_quantity} /> on hand · {seed.reserved_quantity} reserved for approved orders
+      <div>
+        <p className="text-base font-semibold text-forest-900">{seedLabel(seed)}</p>
+        <p className="mt-0.5 text-sm text-muted">
+          {seed.physical_quantity === null ? "Not counted yet" : `${fmtNum(seed.physical_quantity)} on hand`}
+          {seed.storage_location && ` · ${seed.storage_location}`}
+          {seed.reserved_quantity > 0 && ` · ${fmtNum(seed.reserved_quantity)} reserved`}
         </p>
       </div>
       <Field
-        label="Packets physically on hand"
+        label="Packets on hand"
         error={!valid && value ? "Enter a whole number of 0 or more" : undefined}
-        hint={seed.reserved_quantity > 0 ? `Must be at least ${seed.reserved_quantity} (already reserved).` : undefined}
+        hint={seed.reserved_quantity > 0 ? `Enter at least ${fmtNum(seed.reserved_quantity)} to cover reserved stock.` : undefined}
       >
-        <input className={inputCls} inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} disabled={unknown} autoFocus />
+        <input ref={countInput} className={inputCls} inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} disabled={unknown} readOnly={busy} aria-invalid={!valid && value !== ""} />
       </Field>
       {seed.physical_quantity !== null && seed.reserved_quantity === 0 && (
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={unknown} onChange={(e) => setUnknown(e.target.checked)} className="h-4 w-4 accent-forest-600" />
+          <input type="checkbox" checked={unknown} onChange={(e) => setUnknown(e.target.checked)} disabled={busy} className="size-4 accent-forest-600" />
           Mark as not counted (unknown)
         </label>
       )}
-      <Field label="Reason or note" hint="Optional, saved in the stock history, e.g. “Recount after spring sort”">
-        <input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <Field label="Stock note (optional)">
+        <input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} readOnly={busy} />
       </Field>
-      {valid && next !== null && seed.physical_quantity !== null && (
+      {valid && next !== null && seed.physical_quantity !== null && next >= seed.reserved_quantity && (
         <p className="text-sm text-muted">
-          Change: {next - seed.physical_quantity >= 0 ? "+" : ""}
-          {next - seed.physical_quantity} packets · available after: {next - seed.reserved_quantity}
+          Change: {next - seed.physical_quantity >= 0 ? "+" : ""}{fmtNum(next - seed.physical_quantity)} · Available after: {fmtNum(next - seed.reserved_quantity)}
         </p>
       )}
-      <div className="flex justify-end gap-2">
-        <Button type="button" onClick={() => onDone(null)}>
-          Cancel
-        </Button>
-        {nextSeed && (
-          <Button type="submit" value="next" disabled={!valid || busy} title={`Then count ${seedLabel(nextSeed)}`}>
-            Save and count next
-          </Button>
-        )}
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+      {nextSeed && <p className="text-xs text-muted">Next: {seedLabel(nextSeed)}. Press Enter to save and continue.</p>}
+      <div className="flex flex-wrap gap-2">
         <Button type="submit" variant="primary" disabled={!valid || busy}>
-          Save count
+          {busy ? "Saving…" : nextSeed ? "Save and count next" : "Save count"}
         </Button>
+        {nextSeed && <Button type="submit" value="close" disabled={!valid || busy}>Save and close</Button>}
+        <Button type="button" variant="ghost" onClick={() => onDone(null)} disabled={busy}>Cancel</Button>
       </div>
     </form>
   );
