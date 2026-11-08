@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Send } from "lucide-react";
+import { Bell } from "lucide-react";
 import { useData } from "@/components/data-provider";
-import { Badge, Button, Card, CardHeader, EmptyState, Field, Switch, fmtDate, inputCls } from "@/components/ui";
+import { Badge, Card, CardHeader, EmptyState, Switch, fmtDate } from "@/components/ui";
 import { NOTIFICATION_EVENTS, NOTIFICATION_EVENT_INFO, type NotificationEvent } from "@/lib/types";
 
 const STATUS_TONE = { sent: "green", logged: "blue", skipped: "gray", failed: "red" } as const;
@@ -12,7 +12,6 @@ const STATUS_LABEL = { sent: "Emailed", logged: "Logged only", skipped: "Skipped
 export function NotificationsTab() {
   const { state, mutate, toast } = useData();
   const s = state!.snapshot.settings;
-  const [email, setEmail] = useState(s.notifications.staff_email ?? "");
   const [busy, setBusy] = useState(false);
 
   async function save(patch: object, msg?: string) {
@@ -20,18 +19,6 @@ export function NotificationsTab() {
     try {
       await mutate("/api/settings", { notifications: patch }, "PATCH");
       if (msg) toast(msg);
-    } catch (e) {
-      toast((e as Error).message, "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function test() {
-    setBusy(true);
-    try {
-      const r = await mutate<{ status: string; recipient: string } | null>("/api/notifications/test");
-      toast(r?.status === "sent" ? `Test email sent to ${r.recipient}` : "Test notification added to the log (no email service configured)");
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
@@ -62,7 +49,7 @@ export function NotificationsTab() {
                 <Switch
                   key={e}
                   label={NOTIFICATION_EVENT_INFO[e].label}
-                  description={NOTIFICATION_EVENT_INFO[e].to === "staff" ? "To staff" : "To the requester (if they gave an email)"}
+                  description={NOTIFICATION_EVENT_INFO[e].to === "staff" ? "Staff alert (shown in the log)" : "To the requester (if they gave an email)"}
                   checked={s.notifications.events[e]}
                   disabled={busy}
                   onChange={(v) => save({ events: { [e]: v } })}
@@ -70,21 +57,6 @@ export function NotificationsTab() {
               ))}
             </div>
           </div>
-
-          <form
-            className="flex items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              save({ staff_email: email.trim() || null }, "Staff email saved");
-            }}
-          >
-            <Field label="Staff email" hint="Gets new-request and low-stock alerts" className="flex-1">
-              <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seeds@example.org" />
-            </Field>
-            <Button type="submit" variant="primary" disabled={busy} className="mb-[18px]">
-              Save
-            </Button>
-          </form>
 
           <div className="rounded-md bg-sage-50 p-3 text-xs text-muted">
             {state!.emailConfigured ? (
@@ -98,9 +70,6 @@ export function NotificationsTab() {
               </>
             )}
           </div>
-          <Button onClick={test} disabled={busy}>
-            <Send size={15} /> Send a test notification
-          </Button>
         </div>
       </Card>
 

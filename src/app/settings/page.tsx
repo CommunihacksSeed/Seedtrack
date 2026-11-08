@@ -21,7 +21,7 @@ export default function SettingsPage() {
     <>
       <PageHeader title="Settings" subtitle="Notifications, seed bundles and system details." />
       <SegmentedTabs className="mb-5" label="Settings sections" value={tab} onChange={setTab} options={TABS.map((t) => ({ value: t.id, label: t.label }))} />
-      {tab === "notifications" && <NotificationsTab key={state.snapshot.settings.notifications.staff_email ?? ""} />}
+      {tab === "notifications" && <NotificationsTab />}
       {tab === "bundles" && <BundlesTab />}
       {tab === "system" && <SystemTab />}
     </>
