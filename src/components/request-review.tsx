@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 import clsx from "clsx";
-import { AlertTriangle, ArrowLeft, Ban, Boxes, CheckCircle2, ExternalLink, Mail, MapPin, Package, Plus, Printer, Save, Truck, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Ban, Boxes, CheckCircle2, Scale, Send, ExternalLink, Mail, MapPin, Package, Plus, Printer, Save, Truck, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useData } from "@/components/data-provider";
 import { ActionMenu, Badge, Button, EmptyState, LinkButton, Modal, StatusBadge, fmtDate, fmtNum, inputCls, type MenuItem } from "@/components/ui";
@@ -58,6 +58,8 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
   const [newItem, setNewItem] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [partialOpen, setPartialOpen] = useState(false);
+  const [followUp, setFollowUp] = useState(true);
 
   const update = (idx: number, patch: Partial<Row>) =>
     setRows((r) => r.map((x, i) => (i === idx ? { ...x, ...patch, suggested: "qty" in patch ? false : x.suggested } : x)));
@@ -86,6 +88,26 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
   const issueCount = checks.reduce((a, c) => a + (c.issues.length ? 1 : 0), 0);
   const totalApproved = rows.reduce((a, r) => a + (!r.unavailable && /^\d+$/.test(r.qty) ? Number(r.qty) : 0), 0);
 
+  // Flexible allocation: cap every row at what's actually free, sharing a seed's stock across rows in order.
+  // Uncounted / unmatched rows are left alone (they still need staff attention).
+  const overStock = rows.some((r, i) => checks[i].issues.some((x) => x.text.startsWith("Only ")));
+  function fitToStock() {
+    const left = new Map<string, number>();
+    let changed = 0;
+    const next = rows.map((r) => {
+      const seed = r.seedId ? seedById.get(r.seedId) : undefined;
+      if (r.unavailable || !seed || seed.physical_quantity === null || !/^\d+$/.test(r.qty)) return r;
+      const free = left.get(seed.id) ?? availableQuantity(seed)!;
+      const qty = Math.min(Number(r.qty), free);
+      left.set(seed.id, free - qty);
+      if (qty === Number(r.qty)) return r;
+      changed++;
+      return { ...r, qty: String(qty), suggested: false };
+    });
+    setRows(next);
+    toast(changed ? `Lowered ${changed} ${changed === 1 ? "item" : "items"} to what’s in stock. Review, then approve.` : "Everything already fits in stock.");
+  }
+
   const reviewPayload = () =>
     rows.map((r) => ({
       item_id: r.item.id,
@@ -111,6 +133,11 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
   const history = db.order_status_history.filter((h) => h.order_id === order.id).sort((a, b) => a.changed_at.localeCompare(b.changed_at));
   const open = order.status !== "Delivered" && order.status !== "Cancelled";
   const reserving = RESERVING_STATUSES.includes(order.status);
+  const allocated = items.filter((i) => (i.approved_quantity ?? 0) > 0);
+  const packedNow = allocated.reduce((a, i) => a + i.packed_quantity, 0);
+  const approvedNow = allocated.reduce((a, i) => a + (i.approved_quantity ?? 0), 0);
+  // Partial fulfilment: something is packed but not everything.
+  const canSendPartial = reserving && order.status !== "Ready" && packedNow > 0 && packedNow < approvedNow;
   const menu: MenuItem[] = [
     ...(variant === "panel" ? [{ label: "Open full page", icon: <ExternalLink />, onSelect: () => router.push(`/requests/${order.id}`) }] : []),
     ...(reserving
@@ -169,6 +196,11 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
               <Package /> Pack this order
             </LinkButton>
           )}
+          {canSendPartial && (
+            <Button onClick={() => setPartialOpen(true)} disabled={busy}>
+              <Send /> Send what’s packed
+            </Button>
+          )}
           {order.status === "Ready" && (
             <Button variant="primary" onClick={() => act({ action: "deliver" }, `Order #${order.order_number} delivered.`)} disabled={busy}>
               <Truck /> Mark delivered
@@ -208,6 +240,9 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
                         <p className={clsx("wrap-anywhere font-semibold", r.unavailable ? "text-muted line-through" : "text-forest-900")}>{r.item.requested_seed_name}</p>
                         <p className="text-xs text-muted">
                           {r.item.requested_quantity === null ? "Quantity not specified" : `Requested ${fmtNum(r.item.requested_quantity)}`}
+                          {!r.unavailable && r.item.requested_quantity !== null && /^\d+$/.test(r.qty) && Number(r.qty) < r.item.requested_quantity && (
+                            <span className="ml-1 font-medium text-amber-800">· partial ({r.qty} of {r.item.requested_quantity})</span>
+                          )}
                         </p>
                       </div>
                       <StockLine seed={seed} />
@@ -354,6 +389,11 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
                 )}
               </p>
               <div className="flex shrink-0 flex-wrap gap-2">
+                {overStock && (
+                  <Button onClick={fitToStock} disabled={busy} title="Lower quantities that exceed available stock">
+                    <Scale /> Fit to stock
+                  </Button>
+                )}
                 <Button onClick={() => act({ action: "save_review", review: reviewPayload() }, "Review saved")} disabled={busy || rows.length === 0}>
                   <Save /> Save review
                 </Button>
@@ -419,6 +459,51 @@ function Review({ order, items, variant, onBack }: { order: Order; items: OrderI
           </section>
         </div>
       </div>
+
+      <Modal open={partialOpen} onClose={() => setPartialOpen(false)} title={`Send part of order #${order.order_number}?`}>
+        <div className="space-y-4 text-sm">
+          <p>
+            <strong className="text-forest-900">{fmtNum(packedNow)} of {fmtNum(approvedNow)} packets</strong> are packed. The packed ones leave stock now and the order is marked delivered.
+          </p>
+          <ul className="divide-y divide-sage-100 rounded-md border border-sage-200">
+            {allocated
+              .filter((i) => i.packed_quantity < (i.approved_quantity ?? 0))
+              .map((i) => (
+                <li key={i.id} className="flex justify-between gap-3 px-3 py-1.5">
+                  <span className="wrap-anywhere">{i.requested_seed_name}</span>
+                  <span className="shrink-0 tabular-nums text-amber-800">
+                    {i.packed_quantity} of {i.approved_quantity} · {(i.approved_quantity ?? 0) - i.packed_quantity} short
+                  </span>
+                </li>
+              ))}
+          </ul>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-0.5 size-4 accent-forest-600" checked={followUp} onChange={(e) => setFollowUp(e.target.checked)} />
+            <span>
+              Create a follow-up request for the {fmtNum(approvedNow - packedNow)} missing packets
+              <span className="block text-xs text-muted">Otherwise they’re released back to available stock.</span>
+            </span>
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setPartialOpen(false)}>Keep packing</Button>
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={async () => {
+                if (
+                  await act(
+                    { action: "deliver_partial", follow_up: followUp },
+                    `Order #${order.order_number} partly delivered: ${packedNow} packets sent.${followUp ? " Follow-up request created." : ""}`,
+                  )
+                )
+                  setPartialOpen(false);
+              }}
+            >
+              <Send /> Send {fmtNum(packedNow)} packets
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title={`Cancel order #${order.order_number}?`}>
         <div className="space-y-4 text-sm">

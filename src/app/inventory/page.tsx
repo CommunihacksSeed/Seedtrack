@@ -705,6 +705,19 @@ function InventoryImport({ onDone }: { onDone: () => void }) {
     });
   }
 
+  async function loadSample() {
+    setBusy(true);
+    try {
+      const r = await mutate<{ created: number; counted: number; located: number; bundles: number }>("/api/seeds/sample", {});
+      toast(`Sample inventory loaded: ${r.created} varieties added, ${r.counted} counted, ${r.located} given a drawer, ${r.bundles} bundles. Existing counts were kept.`);
+      onDone();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit() {
     setBusy(true);
     try {
@@ -729,6 +742,20 @@ function InventoryImport({ onDone }: { onDone: () => void }) {
           Download template
         </a>
       </p>
+      {rows.length === 0 && !results && (
+        <div className="rounded-lg border border-sage-200 bg-sage-50 px-3 py-2.5">
+          <p className="font-medium text-forest-900">For demos: fictional sample inventory</p>
+          <p className="mt-0.5 text-xs text-muted">
+            All 74 varieties from the 2026 catalogue with made-up counts, storage drawers and 3 bundles. Adds what&apos;s missing and fills only seeds that haven&apos;t been counted; real counts are never changed.{" "}
+            <a className="font-medium text-forest-700 underline" href="/templates/yfs-sample-inventory-fictional.csv" download>
+              Download as CSV
+            </a>
+          </p>
+          <Button size="sm" className="mt-2" onClick={loadSample} disabled={busy}>
+            <Sprout /> Load sample inventory
+          </Button>
+        </div>
+      )}
       <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e.target.files?.[0])} className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-forest-50 file:px-3 file:py-2 file:font-medium file:text-forest-800" />
       {rows.length > 0 && !results && (
         <>
