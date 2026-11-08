@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getStore } from "@/lib/store";
-import { createSeed, DomainError, matchSeed, setStockCount, updateSeedDetails } from "@/lib/domain";
+import { createSeed, DomainError, matchSeed, seedIdentity, setStockCount, updateSeedDetails } from "@/lib/domain";
 import { parseBody, handleWrite } from "@/lib/server/http";
 import { rowToSeedInput } from "@/lib/import-mapping";
 
@@ -30,7 +30,8 @@ export async function POST(req: Request) {
             (s) =>
               s.name.toLowerCase() === input.name.toLowerCase() &&
               (s.variety ?? "").toLowerCase() === (input.variety ?? "").toLowerCase(),
-          ) ?? (input.variety ? null : matchSeed(input.name, draft.seeds.filter((s) => !s.variety)));
+          ) ?? (input.variety ? null : matchSeed(input.name, draft.seeds.filter((s) => !s.variety)))
+            ?? (existing === "skip" ? draft.seeds.find((seed) => seedIdentity(seed) === seedIdentity(input)) : null);
           if (!found) {
             createSeed(draft, input);
             report.push({ row: i + 1, status: "created", message: label });

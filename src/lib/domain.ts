@@ -135,6 +135,11 @@ const norm = (s: string) =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
+/** Inventory identity is the normalized name and variety, independently of category. */
+export function seedIdentity({ name, variety }: Pick<SeedInput, "name" | "variety">) {
+  return `${norm(name)}|${norm(variety ?? "")}`;
+}
+
 /**
  * Match a free-text requested seed name to exactly one inventory record.
  * Returns null when there is no match or the match is ambiguous: staff then
@@ -163,9 +168,8 @@ export function createSeed(db: DataSnapshot, input: SeedInput, at = iso()): Seed
   assertNonNegInt(input.physical_quantity, "Physical quantity", true);
   assertNonNegInt(input.low_stock_threshold, "Low-stock threshold", true);
   const variety = input.variety?.trim() || null;
-  const dupe = db.seeds.find(
-    (s) => norm(s.name) === norm(input.name) && norm(s.variety ?? "") === norm(variety ?? ""),
-  );
+  const identity = seedIdentity(input);
+  const dupe = db.seeds.find((s) => seedIdentity(s) === identity);
   if (dupe) throw new DomainError(`"${seedLabel(dupe)}" already exists in inventory.`, 409, "duplicate");
   const seed: Seed = {
     id: uuid(),

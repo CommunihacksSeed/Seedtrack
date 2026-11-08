@@ -6,8 +6,9 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Papa from "papaparse";
-import { ClipboardCheck, Download, History, Info, Pencil, Plus, Sprout, Trash2, Upload } from "lucide-react";
+import { ClipboardCheck, Download, History, Info, Pencil, Plus, RefreshCw, Sprout, Trash2, Upload } from "lucide-react";
 import { useData } from "@/components/data-provider";
+import { CatalogueSync } from "@/components/catalogue-sync";
 import { downloadExport } from "@/components/download";
 import { useQueryState } from "@/components/use-query-state";
 import {
@@ -62,6 +63,7 @@ function InventoryPageContent() {
   const [countingId, setCountingId] = useState<string | null>(null);
   const [countFeedback, setCountFeedback] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [catalogueOpen, setCatalogueOpen] = useState(false);
   const importing = importOpen || importParam === "1";
 
   const all = useMemo(() => state?.snapshot.seeds ?? [], [state]);
@@ -126,6 +128,9 @@ function InventoryPageContent() {
           <>
             <Button variant="ghost" onClick={() => downloadExport("inventory").catch((e) => toast(e.message, "error"))}>
               <Download /> Export
+            </Button>
+            <Button variant="ghost" onClick={() => setCatalogueOpen(true)}>
+              <RefreshCw /> Sync catalogue
             </Button>
             <Button onClick={() => setImportOpen(true)}>
               <Upload /> Import CSV
@@ -335,6 +340,9 @@ function InventoryPageContent() {
             }}
           />
         )}
+      </Modal>
+      <Modal open={catalogueOpen} onClose={() => setCatalogueOpen(false)} title="Sync catalogue">
+        {catalogueOpen && <CatalogueSync onDone={() => setCatalogueOpen(false)} />}
       </Modal>
       <Modal
         open={importing}
