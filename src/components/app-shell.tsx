@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X } from "lucide-react";
+import { LogOut, ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X } from "lucide-react";
 import { useData } from "./data-provider";
-import { isPublicPath } from "./public-path";
+import { isAuthPath, isPublicPath } from "./public-path";
 import { ErrorState } from "./ui";
 
 const NAV = [
@@ -67,6 +67,36 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+function AccountBox() {
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { email: string | null }) => setEmail(d.email))
+      .catch(() => {});
+  }, []);
+  if (!email) return null;
+  return (
+    <div className="mb-3 flex items-center justify-between gap-2 rounded-md border border-sage-200 bg-white px-2.5 py-2">
+      <span className="min-w-0 truncate text-xs text-forest-900" title={email}>
+        {email}
+      </span>
+      <button
+        type="button"
+        className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-muted hover:bg-sage-100 hover:text-forest-900"
+        onClick={async () => {
+          await fetch("/api/auth/signout", { method: "POST" });
+          // A full page load clears all staff data held in memory.
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+          window.location.assign("/login");
+        }}
+      >
+        <LogOut size={13} aria-hidden /> Sign out
+      </button>
+    </div>
+  );
+}
+
 function Footer() {
   return (
     <p className="text-[11px] leading-relaxed text-muted">
@@ -92,7 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [open]);
 
   // Public request form: no sidebar, no staff banners, just the page.
-  if (isPublicPath(path)) return <main id="main">{children}</main>;
+  if (isPublicPath(path) || isAuthPath(path)) return <main id="main">{children}</main>;
 
   return (
     <div className="min-h-screen lg:flex">
@@ -107,6 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavLinks />
         </div>
         <div className="px-1.5">
+          <AccountBox />
           <Footer />
         </div>
       </aside>
@@ -131,6 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <NavLinks onNavigate={() => setOpen(false)} />
             </div>
             <div className="px-1.5">
+              <AccountBox />
               <Footer />
             </div>
           </div>

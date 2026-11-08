@@ -60,6 +60,12 @@ Open pages check `/api/version` every 10 seconds. A data change reloads the data
 
 **There is no login or access control.** Anyone who can open the site can read and change data, including requester contact details. Put the site behind Cloudflare Access or add per-user login before handling real data. `SEEDFLOW_DISABLE_DEMO_RESET` is on in `cloudflare.config.ts`, so **Reset demo data** can't wipe the live database.
 
+### Sign in
+
+Everything except the public request form (`/request`) needs an account. Create one at `/signup` with your email and a password of at least 8 characters that includes a letter and a number, then sign in at `/login`. Anyone can sign up; there are no roles, email verification or password resets.
+
+Passwords are stored as salted PBKDF2-SHA256 hashes. Sessions last 7 days in an HttpOnly, Secure cookie, and only a hash of the session token is stored. The gate is `src/proxy.ts`; accounts live in the `accounts` and `account_sessions` tables (`migrations/0004_accounts.sql`).
+
 ## Commands
 
 | Command | What it does |
