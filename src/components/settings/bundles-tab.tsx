@@ -6,6 +6,7 @@ import { useData } from "@/components/data-provider";
 import { Button, Card, CardHeader, EmptyState, Field, Modal, inputCls } from "@/components/ui";
 import { describeRule } from "@/lib/allocation";
 import { seedLabel } from "@/lib/domain";
+import { SEASONAL_BUNDLES } from "@/lib/seasonal-bundles";
 import type { AppSettings, Bundle } from "@/lib/types";
 
 export function BundlesTab() {
@@ -13,6 +14,20 @@ export function BundlesTab() {
   const db = state!.snapshot;
   const seeds = new Map(db.seeds.map((s) => [s.id, s]));
   const [editing, setEditing] = useState<Bundle | "new" | null>(null);
+  const [adding, setAdding] = useState(false);
+  const missingSeasonal = SEASONAL_BUNDLES.filter((b) => !db.bundles.some((x) => x.name.trim().toLowerCase() === b.name.toLowerCase()));
+
+  async function addSeasonal() {
+    setAdding(true);
+    try {
+      const r = await mutate<{ bundles: string[]; seedsCreated: number; seedsCounted: number }>("/api/bundles/seasonal", {});
+      toast(r.bundles.length ? `Added ${r.bundles.join(", ")}. They now appear on the request form.` : "All seasonal bundles already exist.");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setAdding(false);
+    }
+  }
 
   async function remove(b: Bundle) {
     if (!confirm(`Delete the "${b.name}" bundle template? Existing orders are not affected.`)) return;
@@ -31,14 +46,21 @@ export function BundlesTab() {
           title="Bundle templates"
           subtitle="What each bundle contains. During review, one click adds a bundle's seeds to a request."
           action={
-            <Button size="sm" variant="primary" onClick={() => setEditing("new")}>
-              <Plus size={14} /> New bundle
-            </Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              {missingSeasonal.length > 0 && (
+                <Button size="sm" onClick={addSeasonal} disabled={adding} title={`Adds ${missingSeasonal.map((b) => b.name).join(", ")}, 4 seeds each`}>
+                  <Sparkles size={14} /> Add seasonal bundles
+                </Button>
+              )}
+              <Button size="sm" variant="primary" onClick={() => setEditing("new")}>
+                <Plus size={14} /> New bundle
+              </Button>
+            </div>
           }
         />
         {db.bundles.length === 0 ? (
           <div className="p-5">
-            <EmptyState title="No bundles yet">Add one for each bundle on the request form (e.g. Spring, Fall Harvest, Herbs).</EmptyState>
+            <EmptyState title="No bundles yet">Add one for each bundle on the request form, or use Add seasonal bundles for Spring, Summer, Autumn and Winter (4 seeds each).</EmptyState>
           </div>
         ) : (
           <ul className="divide-y divide-sage-100">

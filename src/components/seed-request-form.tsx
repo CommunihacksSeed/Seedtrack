@@ -193,7 +193,7 @@ export function SeedRequestForm({
             <p className="mt-3 text-sm text-muted">No bundles are available right now. Pick seed types below instead.</p>
           ) : (
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {bundleOptions.map((b) => {
+              {sortBundles(bundleOptions).map((b) => {
                 const on = bundles.includes(b.name);
                 const seeds = seedById;
                 return (
@@ -390,6 +390,16 @@ function Section({ n, title, hint, children }: { n: number; title: string; hint?
       <div className="mt-4">{children}</div>
     </Card>
   );
+}
+
+const SEASON_ORDER = ["spring", "summer", "autumn", "fall", "winter"];
+/** Seasonal bundles in season order (Spring → Winter), anything else after them by name. */
+function sortBundles<T extends { name: string }>(list: T[]) {
+  const rank = (n: string) => {
+    const i = SEASON_ORDER.findIndex((s) => n.toLowerCase().startsWith(s));
+    return i < 0 ? SEASON_ORDER.length : i;
+  };
+  return [...list].sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
 }
 
 function YesNoField({ label, value, onChange }: { label: string; value: YesNo; onChange: (v: YesNo) => void }) {
