@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { DataSnapshot } from "@/lib/types";
-import { isPublicPath } from "./public-path";
+import { isAuthPath, isPublicPath } from "./public-path";
 
 export interface AppState {
   mode: "d1";
@@ -36,7 +36,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [updateReady, setUpdateReady] = useState(false);
   const seen = useRef<{ data?: number; build?: string }>({});
   // The public request form must never load staff data (requests, contacts).
-  const isPublic = isPublicPath(usePathname());
+  const path = usePathname();
+  const isPublic = isPublicPath(path) || isAuthPath(path);
 
   const toast = useCallback((text: string, kind: Toast["kind"] = "success") => {
     const id = Date.now() + Math.random();
