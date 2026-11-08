@@ -50,6 +50,7 @@ export interface SeedFlowStore {
   packItems(orderId: string, packs: PackItemInput[]): Promise<Order>;
   markReady(orderId: string): Promise<Order>;
   deliverOrder(orderId: string): Promise<Order>;
+  deliverPartial(orderId: string, followUp: boolean): Promise<{ order: Order; followUp: Order | null; sent: number; short: number }>;
   cancelOrder(orderId: string, reason: string | null): Promise<Order>;
 
   setDelivery(orderId: string, input: DeliveryInput): Promise<Order>;

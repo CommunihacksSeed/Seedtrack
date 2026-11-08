@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X } from "lucide-react";
+import { ClipboardList, LayoutDashboard, Menu, Package, Settings, Sprout, Warehouse, X, LogOut } from "lucide-react";
 import { useData } from "./data-provider";
 import { isPublicPath } from "./public-path";
 import { ErrorState } from "./ui";
@@ -68,12 +68,33 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function Footer() {
+  const { state } = useData();
   return (
-    <p className="text-[11px] leading-relaxed text-muted">
-      Built for Youth in Food Systems — CommuniHacks 2026.
-      <br />
-      Hackathon prototype; not an official YFS service.
-    </p>
+    <div className="space-y-3">
+      {state?.user && (
+        <div className="rounded-lg border border-sage-200 bg-white px-3 py-2">
+          <p className="truncate text-xs font-medium text-forest-900" title={state.user.email}>
+            {state.user.name || state.user.email}
+          </p>
+          {state.user.name && <p className="truncate text-[11px] text-muted">{state.user.email}</p>}
+          <button
+            type="button"
+            className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-forest-700 hover:underline"
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+              window.location.replace("/login");
+            }}
+          >
+            <LogOut size={13} aria-hidden /> Sign out
+          </button>
+        </div>
+      )}
+      <p className="text-[11px] leading-relaxed text-muted">
+        Built for Youth in Food Systems — CommuniHacks 2026.
+        <br />
+        Hackathon prototype; not an official YFS service.
+      </p>
+    </div>
   );
 }
 

@@ -19,6 +19,10 @@ export default defineConfig({
       DB: bindings.d1({ id: "94072807-2577-41ea-b804-8ca9b20210ee", name: "seedflow" }),
       SEEDFLOW_DISABLE_DEMO_RESET: bindings.text("true"),
       APP_URL: bindings.text("https://seedflow.space"),
+      // One-time code for creating the first staff account at /login (only while no accounts exist).
+      // Only the SHA-256 is here; the code itself was given to the team privately. It stops working
+      // once any staff account exists, so it's safe to leave in place.
+      SEEDFLOW_SETUP_CODE_SHA256: bindings.text("ab7f1d5af855e05d31c85e78a3b00e939038569739fd3cad1b42de058129f967"),
       // Shared abuse brake for the public request form: 20 submissions per IP per 60 seconds.
       // Not yet exercised by a real deployment; if a deploy rejects this binding, remove this line
       // and the form falls back to its best-effort in-memory limit.

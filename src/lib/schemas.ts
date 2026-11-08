@@ -65,6 +65,7 @@ export const orderActionSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("ready") }),
   z.object({ action: z.literal("deliver") }),
+  z.object({ action: z.literal("deliver_partial"), follow_up: z.boolean() }),
   z.object({ action: z.literal("cancel"), reason: z.string().max(500).nullish() }),
   z.object({
     action: z.literal("set_delivery"),
