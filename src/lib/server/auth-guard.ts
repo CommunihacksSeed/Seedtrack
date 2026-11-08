@@ -12,6 +12,28 @@ export function adminSecrets() {
   };
 }
 
+/** SHA-256 (hex) of the one-time setup code, if one is configured. */
+export function setupCodeHash(): string | null {
+  const h = (env.SEEDFLOW_SETUP_CODE_SHA256 ?? process.env.SEEDFLOW_SETUP_CODE_SHA256 ?? "").trim().toLowerCase();
+  return /^[0-9a-f]{64}$/.test(h) ? h : null;
+}
+
+/** Codes are typed by people: ignore case, spaces and missing dashes. */
+export function normalizeSetupCode(code: string) {
+  const c = code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return c.length === 24 ? c.match(/.{6}/g)!.join("-") : c;
+}
+
+export async function setupCodeMatches(code: string) {
+  const want = setupCodeHash();
+  if (!want) return false;
+  const got = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalizeSetupCode(code))));
+  const hex = [...got].map((b) => b.toString(16).padStart(2, "0")).join("");
+  let diff = 0;
+  for (let i = 0; i < 64; i++) diff |= hex.charCodeAt(i) ^ want.charCodeAt(i);
+  return diff === 0;
+}
+
 export async function bootstrapIfNeeded() {
   const { email, password } = adminSecrets();
   await ensureBootstrapAdmin(authDb(), email, password);

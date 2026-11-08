@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import clsx from "clsx";
 import { Lock, Sprout } from "lucide-react";
 import { Button, Field, inputCls } from "@/components/ui";
 
@@ -10,7 +11,7 @@ const ERRORS: Record<string, string> = {
   locked: "Too many sign-in attempts. Please wait 15 minutes and try again.",
 };
 
-type Status = { signedIn: boolean; setupAllowed: boolean; notConfigured: boolean };
+type Status = { signedIn: boolean; setupAllowed: boolean; setupNeedsCode?: boolean; notConfigured: boolean };
 
 /** Staff sign-in. Only staff accounts can open the panel; schools use /request instead. */
 export default function LoginPage() {
@@ -50,6 +51,7 @@ export default function LoginPage() {
     const email = String(f.get("email") ?? "").trim();
     const name = String(f.get("name") ?? "").trim();
     const password = String(f.get("password") ?? "");
+    const setup_code = String(f.get("setup_code") ?? "").trim();
     if (!email || !password) {
       setError("Enter your staff email and password.");
       return;
@@ -60,7 +62,7 @@ export default function LoginPage() {
       const res = await fetch(setup ? "/api/auth/setup" : "/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(setup ? { email, name, password } : { email, password }),
+        body: JSON.stringify(setup ? { email, name, password, setup_code } : { email, password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Sign-in failed. Please try again.");
@@ -87,7 +89,9 @@ export default function LoginPage() {
           </h1>
           <p className="mt-1 text-sm text-muted">
             {setup
-              ? "No staff accounts exist yet on this local server. This account can add colleagues afterwards."
+              ? status?.setupNeedsCode
+                ? "No staff accounts exist yet. Enter the one-time setup code you were given, then choose your own password. You can add colleagues afterwards."
+                : "No staff accounts exist yet on this local server. This account can add colleagues afterwards."
               : "For YFS staff only. Requesting seeds? Use the seed request form instead."}
           </p>
           {status?.notConfigured && (
@@ -97,6 +101,11 @@ export default function LoginPage() {
           )}
           <input type="hidden" name="next" value={nextPath} />
           <div className="mt-5 space-y-4">
+            {setup && status?.setupNeedsCode && (
+              <Field label="Setup code">
+                <input className={clsx(inputCls, "font-mono uppercase")} name="setup_code" autoComplete="off" spellCheck={false} placeholder="XXXXXX-XXXXXX-XXXXXX-XXXXXX" required />
+              </Field>
+            )}
             <Field label="Staff email">
               <input className={inputCls} name="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
             </Field>
