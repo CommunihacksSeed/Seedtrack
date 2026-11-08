@@ -1,8 +1,9 @@
 /**
  * DEMO DATA — every quantity, school, person, email and address below is
  * FICTIONAL. YFS has not provided real inventory counts. Seed names and
- * varieties come from YFS's real 2026 catalogue (see seed-catalogue.ts); every
- * stock number and storage location is made up (see sample-inventory.ts). The real form PDFs
+ * varieties come from YFS's real 2026 catalogue (see seed-catalogue.ts); the
+ * stock numbers on the first few are made up for the demo, the rest are
+ * "not counted". The real form PDFs
  * were used only to understand field structure; no real requester details are
  * copied here.
  */
@@ -14,12 +15,12 @@ import {
   emptySnapshot,
   markReady,
   packItems,
+  saveBundle,
   setDelivery,
   updateSettings,
 } from "./domain";
 import type { DataSnapshot, SeedInput } from "./types";
 import { SEED_CATALOGUE_2026 } from "./seed-catalogue";
-import { loadSampleInventory } from "./sample-inventory";
 
 function daysAgo(n: number, hour = 10) {
   const d = new Date();
@@ -46,10 +47,48 @@ const SEEDS: SeedInput[] = [
 export function buildDemoSnapshot(): DataSnapshot {
   const db = emptySnapshot();
   for (const s of SEEDS) createSeed(db, s, daysAgo(30, 9));
-  // The rest of the 2026 catalogue with fictional counts and drawers. Basil stays "not counted" on purpose.
-  loadSampleInventory(db, { fillUncounted: false });
+  const seedId = (name: string, variety: string | null = null) =>
+    db.seeds.find((s) => s.name === name && s.variety === variety)!.id;
 
-  // Bundles (Spring, Fall Harvest, Herbs/Edible Flowers) come from loadSampleInventory above.
+  // Bundles as listed on the YFS Seed Request Form 2026. Which variety and how
+  // many packets go in each bundle are demo choices (1 packet per seed).
+  const catalogueId = (name: string, variety: string | null = null) => {
+    let s = db.seeds.find((x) => x.name === name && x.variety === variety);
+    if (!s) s = createSeed(db, { ...SEED_CATALOGUE_2026.find((c) => c.name === name && (c.variety ?? null) === variety)!, physical_quantity: null }, daysAgo(30, 9));
+    return s.id;
+  };
+  saveBundle(db, null, {
+    name: "Spring Bundle",
+    description: "radish, bok choy, spinach, bunching onions",
+    items: [
+      { seed_id: seedId("Radish", "French Breakfast"), quantity: 1 },
+      { seed_id: seedId("Bok Choy"), quantity: 1 },
+      { seed_id: seedId("Spinach", "Butterflay"), quantity: 1 },
+      { seed_id: catalogueId("Onion", "White Gem Hybrid"), quantity: 1 },
+    ],
+  }, daysAgo(30, 9));
+  saveBundle(db, null, {
+    name: "Fall Harvest",
+    description: "pumpkin, squash, kale, beets, root parsley",
+    items: [
+      { seed_id: seedId("Pumpkin", "Howden Field"), quantity: 1 },
+      { seed_id: catalogueId("Squash", "Delicata"), quantity: 1 },
+      { seed_id: seedId("Kale", "Red Russian"), quantity: 1 },
+      { seed_id: catalogueId("Beet", "Cylindra Formanova"), quantity: 1 },
+      { seed_id: catalogueId("Root Parsley", "Hamburg"), quantity: 1 },
+    ],
+  }, daysAgo(30, 9));
+  saveBundle(db, null, {
+    name: "Herbs/Edible Flowers",
+    description: "basil, chives, borage, nasturtium, marigold",
+    items: [
+      { seed_id: seedId("Basil", "Genovese"), quantity: 1 },
+      { seed_id: catalogueId("Chives"), quantity: 1 },
+      { seed_id: catalogueId("Borage"), quantity: 1 },
+      { seed_id: catalogueId("Nasturtium (Climbing)"), quantity: 1 },
+      { seed_id: catalogueId("Marigold"), quantity: 1 },
+    ],
+  }, daysAgo(30, 9));
 
   updateSettings(db, {
     notifications: { staff_email: "staff@example.org" },
@@ -87,8 +126,8 @@ export function buildDemoSnapshot(): DataSnapshot {
       submitted_at: daysAgo(24),
       items: [
         { requested_seed_name: "Bok Choy", requested_quantity: 6 },
-        { requested_seed_name: "Pumpkin — Howden Field", requested_quantity: 4 },
-        { requested_seed_name: "Radish — French Breakfast", requested_quantity: 5 },
+        { requested_seed_name: "Pumpkin", requested_quantity: 4 },
+        { requested_seed_name: "Radish", requested_quantity: 5 },
       ],
     },
     daysAgo(24),
@@ -109,7 +148,7 @@ export function buildDemoSnapshot(): DataSnapshot {
       submitted_at: daysAgo(16),
       items: [
         { requested_seed_name: "Carrot — Nantes Coreless", requested_quantity: 8 },
-        { requested_seed_name: "Kale — Red Russian", requested_quantity: 5 },
+        { requested_seed_name: "Kale", requested_quantity: 5 },
       ],
     },
     daysAgo(16),
@@ -129,7 +168,7 @@ export function buildDemoSnapshot(): DataSnapshot {
       student_count: 12,
       source: "manual",
       submitted_at: daysAgo(6),
-      items: [{ requested_seed_name: "Radish — French Breakfast", requested_quantity: 6 }],
+      items: [{ requested_seed_name: "Radish", requested_quantity: 6 }],
     },
     daysAgo(6),
   ).order;
@@ -154,7 +193,7 @@ export function buildDemoSnapshot(): DataSnapshot {
       submitted_at: daysAgo(3),
       items: [
         { requested_seed_name: "Tomato — Crimson Giant", requested_quantity: 10 },
-        { requested_seed_name: "Kale — Red Russian", requested_quantity: 5 },
+        { requested_seed_name: "Kale", requested_quantity: 5 },
       ],
     },
     daysAgo(3),
@@ -173,8 +212,8 @@ export function buildDemoSnapshot(): DataSnapshot {
       source: "csv",
       submitted_at: daysAgo(2),
       items: [
-        { requested_seed_name: "Spinach — Butterflay", requested_quantity: 8 },
-        { requested_seed_name: "Cucumber — Marketmore", requested_quantity: 4 },
+        { requested_seed_name: "Spinach", requested_quantity: 8 },
+        { requested_seed_name: "Cucumber", requested_quantity: 4 },
       ],
     },
     daysAgo(2),
@@ -199,9 +238,9 @@ export function buildDemoSnapshot(): DataSnapshot {
       source: "cognito-import",
       submitted_at: daysAgo(1),
       items: [
-        { requested_seed_name: "Kale — Red Russian" },
-        { requested_seed_name: "Spinach — Butterflay" },
-        { requested_seed_name: "Basil — Genovese" },
+        { requested_seed_name: "Kale" },
+        { requested_seed_name: "Spinach" },
+        { requested_seed_name: "Basil" },
         { requested_seed_name: "Cherokee Purple Tomato" },
       ],
     },

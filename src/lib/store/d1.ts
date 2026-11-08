@@ -239,7 +239,6 @@ export function createD1Store(db: D1Database): SeedFlowStore {
     packItems: (id, p) => transact((s) => domain.packItems(s, id, p)),
     markReady: (id) => transact((s) => domain.markReady(s, id)),
     deliverOrder: (id) => transact((s) => domain.deliverOrder(s, id)),
-    deliverPartial: (id, followUp) => transact((s) => domain.deliverPartial(s, id, { followUp })),
     cancelOrder: (id, reason) => transact((s) => domain.cancelOrder(s, id, reason)),
     setDelivery: (id, input) => transact((s) => domain.setDelivery(s, id, input)),
     addBundleItems: (id, bundleId) => transact((s) => domain.addBundleItems(s, id, bundleId)),

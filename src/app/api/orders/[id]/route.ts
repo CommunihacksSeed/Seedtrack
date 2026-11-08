@@ -44,11 +44,6 @@ export async function POST(req: Request, ctx: RouteContext<"/api/orders/[id]">) 
         notifyLater(s, "order_delivered", { orderId: id });
         return o;
       }
-      case "deliver_partial": {
-        const r = await withLowStockCheck(s, seedIds, () => s.deliverPartial(id, a.follow_up));
-        notifyLater(s, "order_delivered", { orderId: id });
-        return r;
-      }
       case "cancel":
         return s.cancelOrder(id, a.reason ?? null);
     }

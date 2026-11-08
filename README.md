@@ -58,17 +58,7 @@ Open pages check `/api/version` every 10 seconds. A data change reloads the data
 
 **Season dates** shown on the public form live in `src/lib/season.ts`. They are the 2026 spring dates and are marked historical until YFS confirms a new window; update that file and set `applicationsOpen` when it does.
 
-### Staff sign-in
-
-Only YFS staff can open the panel. Every page and API is locked by `src/proxy.ts` except the public form (`/request`, `/api/public/*`), `/login`, the Cognito webhook and `/api/version`, so requester emails and mailing addresses are visible only to signed-in staff.
-
-- **First account in production (no Cloudflare access needed):** open https://seedflow.space/login. While no staff accounts exist, it asks for the **one-time setup code** (given to the team privately; only its SHA-256 is in `cloudflare.config.ts`). Enter it with your email and a password of your choice. Setup then closes for good, and everyone else is added from Settings.
-- **Alternative:** set two secrets on the `seedflow` Worker (dashboard → seedflow → Settings → Variables and Secrets, type **Secret**): `SEEDFLOW_ADMIN_EMAIL` and `SEEDFLOW_ADMIN_PASSWORD` (10+ characters). The first sign-in with those creates the admin account; later changes to the secrets don't touch existing accounts. Without them the sign-in page says the panel isn't configured and stays locked.
-- **More staff:** Settings → Staff accounts → Add a staff member (email + starting password). Staff can change their own password there, which signs out their other devices. Removing an account ends its sessions immediately.
-- **Locally:** with no accounts and no secrets, `/login` on localhost offers a one-time "create the first staff account" form.
-- **How it's stored:** passwords are salted PBKDF2-SHA256 (100,000 iterations). Sessions are random 256-bit tokens in an HttpOnly, Secure, SameSite=Lax `__Host-` cookie, valid 12 hours; only a SHA-256 hash of each token is in D1. Sign-in allows 10 attempts per 15 minutes per email and per IP (per Worker instance).
-
-`SEEDFLOW_DISABLE_DEMO_RESET` is on in `cloudflare.config.ts`, so **Reset demo data** can't wipe the live database.
+**There is no login or access control.** Anyone who can open the site can read and change data, including requester contact details. Put the site behind Cloudflare Access or add per-user login before handling real data. `SEEDFLOW_DISABLE_DEMO_RESET` is on in `cloudflare.config.ts`, so **Reset demo data** can't wipe the live database.
 
 ## Commands
 
@@ -94,7 +84,7 @@ See [`.env.example`](.env.example). Nothing is required for local development.
 
 - **Route distances are estimates:** straight-line distance × 1.3. Use the Google Maps link for real driving directions. Address lookup uses OpenStreetMap's free service, limited to about one address per second.
 - **Email sending** is built for Resend's API but hasn't been tested with a live account. Without a key, notifications are only logged.
-- **One staff role.** Every staff account can do everything, including adding and removing staff. There's no password-reset email; another staff member removes and re-adds the account.
+- **No login or access control.** Anyone who can open the app can change data and see requester contact details. Add Cloudflare Access or per-user login with roles before handling real data.
 - **No live Cognito sync.** The adapter refuses to guess endpoints. Import exports instead, and finish `src/lib/integrations/cognito.ts` once the API is confirmed.
 - **Partial fulfilment isn't supported.** Orders are delivered in full; to send less, change approved quantities during review. Marked as future work.
 - Seed name matching only auto-links exact, unambiguous names. Everything else waits for staff, by design.

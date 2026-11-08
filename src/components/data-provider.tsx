@@ -9,7 +9,6 @@ export interface AppState {
   mode: "d1";
   cognito: { apiConfigured: boolean; webhookConfigured: boolean; message: string };
   emailConfigured: boolean;
-  user: { email: string; name: string | null };
   snapshot: DataSnapshot;
 }
 
@@ -28,12 +27,6 @@ interface Ctx {
 const DataContext = createContext<Ctx | null>(null);
 const POLL_MS = 10_000;
 const HEADERS: HeadersInit = { "content-type": "application/json" };
-
-/** Session expired or missing: go to sign-in and come back here afterwards. */
-function toLogin() {
-  const next = window.location.pathname + window.location.search;
-  window.location.replace(`/login${next && next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`);
-}
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState | null>(null);
@@ -54,7 +47,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/state", { cache: "no-store" });
-      if (res.status === 401) return toLogin();
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not load data");
       setState(data);
@@ -73,10 +65,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         headers: HEADERS,
         body: body === undefined ? undefined : JSON.stringify(body),
       });
-      if (res.status === 401) {
-        toLogin();
-        throw new Error("Your session ended. Please sign in again.");
-      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
       await refresh();
